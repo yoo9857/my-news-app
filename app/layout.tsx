@@ -1,30 +1,36 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type { Metadata } from 'next';
+import Script from 'next/script'; // 👈 애드센스 스크립트를 위해 추가
+import './globals.css';
 
+// 이 metadata 부분은 잘 작성하셨으니 그대로 둡니다.
 export const metadata: Metadata = {
-  // 1. 기본 제목과 설명 변경
-  title: '나만의 뉴스 앱', // 👈 여기에 원하는 제목을 입력하세요.
-  description: '매일 업데이트되는 최신 뉴스를 만나보세요.', // 👈 여기에 원하는 설명을 입력하세요.
-
-  // 2. 링크 공유 시 보일 정보 (Open Graph) 추가
+  title: '나만의 뉴스 앱',
+  description: '매일 업데이트되는 최신 뉴스를 만나보세요.',
   openGraph: {
-    title: '나만의 뉴스 앱', // 공유될 때 보일 제목 (보통 위 제목과 동일)
-    description: '매일 업데이트되는 최신 뉴스를 만나보세요.', // 공유될 때 보일 설명
-    images: ['/placeholder-logo.png'], // 👈 공유될 대표 이미지 경로 (public 폴더 기준)
+    title: '나만의 뉴스 앱',
+    description: '매일 업데이트되는 최신 뉴스를 만나보세요.',
+    images: ['/placeholder-logo.png'],
   },
-  
-  // generator는 v0 정보이므로 삭제하거나 그대로 두셔도 괜찮습니다.
   generator: 'v0.dev',
-}
+};
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* 👇 여기에 애드센스 스크립트 코드를 추가 */}
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9021429421997169"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
+      </head>
       <body>{children}</body>
     </html>
-  )
+  );
 }
