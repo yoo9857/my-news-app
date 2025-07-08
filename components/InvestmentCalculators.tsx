@@ -4,54 +4,72 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Calculator, Percent, Crosshair, Anchor } from "lucide-react";
+
+// 공통 Input 스타일
+const inputStyle = "mt-1 bg-gray-700 border-gray-600 text-white focus:ring-blue-500";
 
 // 복리 계산 차트 컴포넌트
 function CompoundInterestChart() {
-  const [initial, setInitial] = useState(10000000);
-  const [monthly, setMonthly] = useState(500000);
-  const [rate, setRate] = useState(8);
-  const [period, setPeriod] = useState(20);
+  const initialRef = useRef<HTMLInputElement>(null);
+  const monthlyRef = useRef<HTMLInputElement>(null);
+  const rateRef = useRef<HTMLInputElement>(null);
+  const periodRef = useRef<HTMLInputElement>(null);
+
   const [chartData, setChartData] = useState<any[]>([]);
   const [result, setResult] = useState({ principal: 0, finalAsset: 0 });
 
   const calculate = () => {
-    const annualRate = rate / 100;
+    const initialVal = parseFloat(initialRef.current?.value || '0');
+    const monthlyVal = parseFloat(monthlyRef.current?.value || '0');
+    const annualRate = (parseFloat(rateRef.current?.value || '0')) / 100;
+    const years = parseInt(periodRef.current?.value || '0');
+
+    if (years <= 0) {
+        setChartData([]);
+        setResult({ principal: initialVal, finalAsset: initialVal });
+        return;
+    };
+
     const monthlyRate = annualRate / 12;
-    const totalMonths = period * 12;
-
-    let total = initial;
-    let totalPrincipal = initial;
-    const data = [];
-
-    for (let i = 1; i <= totalMonths; i++) {
-      total = (total + monthly) * (1 + monthlyRate);
-      totalPrincipal += monthly;
-      if (i % 12 === 0 || i === 1) { // 1년 단위로 데이터 추가
-        data.push({
-          year: Math.floor(i / 12),
-          asset: Math.round(total),
-          principal: Math.round(totalPrincipal)
-        });
-      }
+    const totalMonths = years * 12;
+    
+    // 최종 자산 계산
+    let finalAsset = initialVal;
+    for (let i = 0; i < totalMonths; i++) {
+        finalAsset = (finalAsset + monthlyVal) * (1 + monthlyRate);
     }
-     if (totalMonths % 12 !== 0) {
-        data.push({
-          year: period,
-          asset: Math.round(total),
-          principal: Math.round(totalPrincipal)
-        });
-      }
+    const totalPrincipal = initialVal + (monthlyVal * totalMonths);
 
+    // 차트 데이터 생성
+    const data = [];
+    let currentAsset = initialVal;
+    let currentPrincipal = initialVal;
+    data.push({ year: 0, asset: Math.round(currentAsset), principal: Math.round(currentPrincipal) });
+
+    for (let y = 1; y <= years; y++) {
+      let yearEndAsset = currentAsset;
+      for(let m = 1; m <= 12; m++) {
+        yearEndAsset = (yearEndAsset + monthlyVal) * (1 + monthlyRate);
+      }
+      currentAsset = yearEndAsset;
+      currentPrincipal += (monthlyVal * 12);
+      data.push({
+          year: y,
+          asset: Math.round(currentAsset),
+          principal: Math.round(currentPrincipal)
+      });
+    }
 
     setChartData(data);
-    setResult({ principal: totalPrincipal, finalAsset: total });
+    setResult({ principal: totalPrincipal, finalAsset: finalAsset });
   };
 
+  // 컴포넌트가 처음 로드될 때 미리보기를 위해 한 번 계산합니다.
   useEffect(() => {
     calculate();
-  }, []); // 컴포넌트 마운트 시 한번 계산
+  }, []);
 
   return (
     <Card className="bg-gray-800 border-gray-700 text-white lg:col-span-3">
@@ -63,19 +81,19 @@ function CompoundInterestChart() {
           <div className="space-y-4">
             <div>
               <label htmlFor="initial-investment" className="block text-sm font-medium text-gray-300">초기 투자금 (원)</label>
-              <Input id="initial-investment" type="number" value={initial} onChange={(e) => setInitial(Number(e.target.value))} className="calc-input mt-1" />
+              <Input id="initial-investment" type="number" ref={initialRef} defaultValue="10000000" className={inputStyle} />
             </div>
             <div>
               <label htmlFor="monthly-investment" className="block text-sm font-medium text-gray-300">매월 추가 투자금 (원)</label>
-              <Input id="monthly-investment" type="number" value={monthly} onChange={(e) => setMonthly(Number(e.target.value))} className="calc-input mt-1" />
+              <Input id="monthly-investment" type="number" ref={monthlyRef} defaultValue="500000" className={inputStyle} />
             </div>
             <div>
               <label htmlFor="annual-return" className="block text-sm font-medium text-gray-300">연평균 수익률 (%)</label>
-              <Input id="annual-return" type="number" value={rate} onChange={(e) => setRate(Number(e.target.value))} className="calc-input mt-1" />
+              <Input id="annual-return" type="number" ref={rateRef} defaultValue="8" className={inputStyle} />
             </div>
             <div>
               <label htmlFor="investment-period" className="block text-sm font-medium text-gray-300">투자 기간 (년)</label>
-              <Input id="investment-period" type="number" value={period} onChange={(e) => setPeriod(Number(e.target.value))} className="calc-input mt-1" />
+              <Input id="investment-period" type="number" ref={periodRef} defaultValue="20" className={inputStyle} />
             </div>
             <Button onClick={calculate} className="w-full bg-blue-600 hover:bg-blue-700">시뮬레이션</Button>
           </div>
@@ -84,20 +102,20 @@ function CompoundInterestChart() {
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
                 <XAxis dataKey="year" stroke="#cbd5e0" unit="년"/>
-                <YAxis stroke="#cbd5e0" tickFormatter={(value) => `${(value / 100000000).toFixed(1)}억`} />
+                <YAxis stroke="#cbd5e0" tickFormatter={(value) => new Intl.NumberFormat('ko-KR', { notation: 'compact', maximumFractionDigits: 1 }).format(value)} />
                 <Tooltip
                     contentStyle={{ backgroundColor: '#1a202c', border: '1px solid #4a5568' }}
                     labelStyle={{ color: '#e2e8f0' }}
                     formatter={(value: number) => `${value.toLocaleString()}원`}
                 />
                 <Legend wrapperStyle={{ color: '#e2e8f0' }} />
-                <Line type="monotone" dataKey="asset" name="총 자산" stroke="#4ade80" />
-                <Line type="monotone" dataKey="principal" name="총 원금" stroke="#9ca3af" />
+                <Line type="monotone" name="총 자산" dataKey="asset" stroke="#4ade80" dot={false} />
+                <Line type="monotone" name="총 원금" dataKey="principal" stroke="#9ca3af" dot={false}/>
               </LineChart>
             </ResponsiveContainer>
              <div className="text-center mt-4 space-y-1">
-                <p className="text-gray-300">총 원금: <span className="font-bold text-white">{result.principal.toLocaleString()}원</span></p>
-                <p className="text-gray-300">최종 자산: <span className="font-bold text-green-400 text-lg">{result.finalAsset.toLocaleString()}원</span></p>
+                <p className="text-gray-300">총 원금: <span className="font-bold text-white">{Math.round(result.principal).toLocaleString()}원</span></p>
+                <p className="text-gray-300">최종 자산: <span className="font-bold text-green-400 text-lg">{Math.round(result.finalAsset).toLocaleString()}원</span></p>
             </div>
           </div>
         </div>
@@ -108,14 +126,14 @@ function CompoundInterestChart() {
 
 // 수익률 계산기
 function ReturnCalculator() {
-    const [buyPrice, setBuyPrice] = useState('');
-    const [sellPrice, setSellPrice] = useState('');
+    const buyPriceRef = useRef<HTMLInputElement>(null);
+    const sellPriceRef = useRef<HTMLInputElement>(null);
     const [result, setResult] = useState<string | null>(null);
 
     const calculate = () => {
-        const buy = parseFloat(buyPrice);
-        const sell = parseFloat(sellPrice);
-        if(isNaN(buy) || isNaN(sell) || buy <= 0) {
+        const buy = parseFloat(buyPriceRef.current?.value || '0');
+        const sell = parseFloat(sellPriceRef.current?.value || '0');
+        if(!buy || !sell || buy <= 0) {
             setResult('유효한 값을 입력하세요.');
             return;
         }
@@ -133,11 +151,11 @@ function ReturnCalculator() {
             <CardContent className="space-y-4">
                 <div>
                     <label htmlFor="buy-price" className="block text-sm font-medium text-gray-300">매수가 (원)</label>
-                    <Input id="buy-price" type="number" value={buyPrice} onChange={(e) => setBuyPrice(e.target.value)} className="calc-input mt-1" placeholder="예: 10000"/>
+                    <Input id="buy-price" type="number" ref={buyPriceRef} className={inputStyle} placeholder="예: 10000"/>
                 </div>
                 <div>
                     <label htmlFor="sell-price" className="block text-sm font-medium text-gray-300">매도가 (원)</label>
-                    <Input id="sell-price" type="number" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} className="calc-input mt-1" placeholder="예: 12000"/>
+                    <Input id="sell-price" type="number" ref={sellPriceRef} className={inputStyle} placeholder="예: 12000"/>
                 </div>
                 <Button onClick={calculate} className="w-full bg-blue-600 hover:bg-blue-700">계산하기</Button>
                 <p className="text-center text-white text-lg">수익률: <span className={`font-bold ${resultColor}`}>{result}</span></p>
@@ -148,14 +166,14 @@ function ReturnCalculator() {
 
 // 목표가 계산기
 function TargetPriceCalculator() {
-    const [currentPrice, setCurrentPrice] = useState('');
-    const [targetReturn, setTargetReturn] = useState('');
+    const currentPriceRef = useRef<HTMLInputElement>(null);
+    const targetReturnRef = useRef<HTMLInputElement>(null);
     const [result, setResult] = useState<string | null>(null);
 
     const calculate = () => {
-        const current = parseFloat(currentPrice);
-        const target = parseFloat(targetReturn);
-        if(isNaN(current) || isNaN(target)) {
+        const current = parseFloat(currentPriceRef.current?.value || '0');
+        const target = parseFloat(targetReturnRef.current?.value || '0');
+        if(!current) { // 목표수익률은 0일 수 있으므로 현재가만 체크
             setResult('유효한 값을 입력하세요.');
             return;
         }
@@ -171,11 +189,11 @@ function TargetPriceCalculator() {
             <CardContent className="space-y-4">
                 <div>
                     <label htmlFor="current-price" className="block text-sm font-medium text-gray-300">현재가/매수가 (원)</label>
-                    <Input id="current-price" type="number" value={currentPrice} onChange={(e) => setCurrentPrice(e.target.value)} className="calc-input mt-1" placeholder="예: 50000"/>
+                    <Input id="current-price" type="number" ref={currentPriceRef} className={inputStyle} placeholder="예: 50000"/>
                 </div>
                 <div>
                     <label htmlFor="target-return" className="block text-sm font-medium text-gray-300">목표 수익률 (%)</label>
-                    <Input id="target-return" type="number" value={targetReturn} onChange={(e) => setTargetReturn(e.target.value)} className="calc-input mt-1" placeholder="예: 20"/>
+                    <Input id="target-return" type="number" ref={targetReturnRef} className={inputStyle} placeholder="예: 20"/>
                 </div>
                 <Button onClick={calculate} className="w-full bg-blue-600 hover:bg-blue-700">계산하기</Button>
                 <p className="text-center text-white text-lg">목표가: <span className="font-bold">{result}</span></p>
@@ -186,20 +204,20 @@ function TargetPriceCalculator() {
 
 // 평단가 계산기
 function AverageDownCalculator() {
-    const [oldPrice, setOldPrice] = useState('');
-    const [oldQty, setOldQty] = useState('');
-    const [newPrice, setNewPrice] = useState('');
-    const [newQty, setNewQty] = useState('');
+    const oldPriceRef = useRef<HTMLInputElement>(null);
+    const oldQtyRef = useRef<HTMLInputElement>(null);
+    const newPriceRef = useRef<HTMLInputElement>(null);
+    const newQtyRef = useRef<HTMLInputElement>(null);
     const [result, setResult] = useState<string | null>(null);
 
     const calculate = () => {
-        const oPrice = parseFloat(oldPrice);
-        const oQty = parseInt(oldQty);
-        const nPrice = parseFloat(newPrice);
-        const nQty = parseInt(newQty);
+        const oPrice = parseFloat(oldPriceRef.current?.value || '0');
+        const oQty = parseInt(oldQtyRef.current?.value || '0');
+        const nPrice = parseFloat(newPriceRef.current?.value || '0');
+        const nQty = parseInt(newQtyRef.current?.value || '0');
 
-        if(isNaN(oPrice) || isNaN(oQty) || isNaN(nPrice) || isNaN(nQty) || oQty < 0 || nQty < 0) {
-            setResult('유효한 값을 입력하세요.');
+        if(!oPrice || oQty <= 0) {
+            setResult('기존 정보를 입력하세요.');
             return;
         }
 
@@ -217,19 +235,19 @@ function AverageDownCalculator() {
             <CardContent className="space-y-4">
                 <div>
                     <label htmlFor="old-price" className="block text-sm font-medium text-gray-300">기존 평단가</label>
-                    <Input id="old-price" type="number" value={oldPrice} onChange={(e) => setOldPrice(e.target.value)} className="calc-input mt-1" placeholder="예: 100000"/>
+                    <Input id="old-price" type="number" ref={oldPriceRef} className={inputStyle} placeholder="예: 100000"/>
                 </div>
                 <div>
                     <label htmlFor="old-qty" className="block text-sm font-medium text-gray-300">기존 보유 수량</label>
-                    <Input id="old-qty" type="number" value={oldQty} onChange={(e) => setOldQty(e.target.value)} className="calc-input mt-1" placeholder="예: 10"/>
+                    <Input id="old-qty" type="number" ref={oldQtyRef} className={inputStyle} placeholder="예: 10"/>
                 </div>
                  <div>
                     <label htmlFor="new-price" className="block text-sm font-medium text-gray-300">추가 매수가</label>
-                    <Input id="new-price" type="number" value={newPrice} onChange={(e) => setNewPrice(e.target.value)} className="calc-input mt-1" placeholder="예: 80000"/>
+                    <Input id="new-price" type="number" ref={newPriceRef} className={inputStyle} placeholder="예: 80000"/>
                 </div>
                 <div>
                     <label htmlFor="new-qty" className="block text-sm font-medium text-gray-300">추가 매수 수량</label>
-                    <Input id="new-qty" type="number" value={newQty} onChange={(e) => setNewQty(e.target.value)} className="calc-input mt-1" placeholder="예: 5"/>
+                    <Input id="new-qty" type="number" ref={newQtyRef} className={inputStyle} placeholder="예: 5"/>
                 </div>
                 <Button onClick={calculate} className="w-full bg-blue-600 hover:bg-blue-700">계산하기</Button>
                 <p className="text-center text-white text-lg">최종 평단가: <span className="font-bold">{result}</span></p>
