@@ -4,7 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, Newspaper, Calculator, LineChartIcon as ChartLine } from "lucide-react"
 import RealTimeNews from "@/components/real-time-news"
 import CompanyExplorer from "@/components/company-explorer"
-
+import SectorPerformanceChart from "@/components/SectorPerformanceChart"
+import InvestmentCalculators from "@/components/InvestmentCalculators"
 // 기업 데이터 (샘플)
 const companyData = [
   {
@@ -144,12 +145,10 @@ export default function KoreanStockPlatform() {
           </TabsContent>
 
           {/* 투자 분석 도구 탭 */}
-          <TabsContent value="tools" className="space-y-6">
-            <div className="text-center py-20">
-              <h2 className="text-2xl font-bold text-white mb-4">투자 분석 도구</h2>
-              <p className="text-gray-400">투자 분석 도구는 곧 추가될 예정입니다.</p>
-            </div>
-          </TabsContent>
+         {/* 투자 분석 도구 탭 */}
+          <TabsContent value="tools" className="mt-6">
+    <InvestmentCalculators />
+</TabsContent>
         </Tabs>
       </div>
     </div>
