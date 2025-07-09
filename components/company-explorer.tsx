@@ -1,2739 +1,362 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Search, TrendingUp, Building2, Target, AlertTriangle } from "lucide-react"
+import React, { useState, useMemo } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button'; // Button 컴포넌트 추가
+import { Loader2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'; // Resizable 컴포넌트 추가
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"; // Added AlertDialog components
 
+// 타입 정의
 interface Company {
-  name: string
-  code: string
-  theme: string
-  marketCap: string
-  sector: string
-  investmentPoints: string[]
-  upwardMomentum2025: string[]
-  downwardRisks2025: string[]
-  rating: "매수" | "보유" | "매도"
-  targetPrice: string
-  currentPrice: string
+  theme: string;
+  name: string;
+  stockCode: string;
+  reason: string;
+  bull: string;
+  bear: string;
+  // New fields from OPT10001
+  marketCap?: string; // 시가총액
+  marketCapRank?: string; // 시가총액순위 (OPT10001에 직접 제공되지 않을 수 있음)
+  per?: string; // PER
+  currentPrice?: string; // 현재가
+  highPrice?: string; // 고가
+  lowPrice?: string; // 저가
+  openingPrice?: string; // 시가
+  change?: string; // 전일대비
+  changeRate?: string; // 등락율
+}
+interface StockData {
+  code: string; name: string; current_price: number; change: number; change_rate: number; status: 'positive' | 'negative' | 'neutral';
 }
 
-// 20개 테마와 각 테마당 15개 기업 데이터 (총 300개)
-const companyData: Company[] = [
-  // 1. 반도체 & IT 테마 (15개) - 기존 데이터 유지
-  {
-    name: "삼성전자",
-    code: "005930",
-    theme: "반도체 & IT",
-    marketCap: "400조원",
-    sector: "반도체",
-    investmentPoints: [
-      "글로벌 메모리 반도체 1위",
-      "AI 시대 HBM 메모리 독점 공급",
-      "파운드리 사업 성장 가속화",
-      "갤럭시 AI 스마트폰 혁신",
-    ],
-    upwardMomentum2025: [
-      "HBM3E/HBM4 양산으로 고부가가치 제품 비중 확대",
-      "AI 데이터센터 수요 폭증에 따른 메모리 슈퍼사이클",
-      "3나노 파운드리 수주 확대 및 수익성 개선",
-      "온디바이스 AI 확산으로 프리미엄 스마트폰 수요 증가",
-    ],
-    downwardRisks2025: [
-      "중국 메모리 업체들의 기술 추격 가속화",
-      "글로벌 스마트폰 시장 성장 둔화",
-      "미-중 기술패권 경쟁 심화로 인한 불확실성",
-      "반도체 업황의 주기적 조정 리스크",
-    ],
-    rating: "매수",
-    targetPrice: "85,000원",
-    currentPrice: "72,000원",
-  },
-  {
-    name: "SK하이닉스",
-    code: "000660",
-    theme: "반도체 & IT",
-    marketCap: "80조원",
-    sector: "반도체",
-    investmentPoints: [
-      "AI 메모리 HBM 시장 독점적 지위",
-      "엔비디아 등 주요 고객사와 장기 공급계약",
-      "차세대 HBM4 기술 선도",
-      "메모리 업황 회복 최대 수혜주",
-    ],
-    upwardMomentum2025: [
-      "HBM 매출 비중 50% 이상 확대로 수익성 극대화",
-      "AI 서버 및 데이터센터 투자 확대",
-      "DDR5, LPDDR5 등 고성능 메모리 수요 증가",
-      "중국 진출 확대로 시장 다변화",
-    ],
-    downwardRisks2025: [
-      "삼성전자 등 경쟁사의 HBM 시장 진입",
-      "AI 투자 과열 우려에 따른 수요 조정",
-      "메모리 가격 변동성 확대",
-      "지정학적 리스크로 인한 공급망 차질",
-    ],
-    rating: "매수",
-    targetPrice: "180,000원",
-    currentPrice: "145,000원",
-  },
-  {
-    name: "네이버",
-    code: "035420",
-    theme: "반도체 & IT",
-    marketCap: "35조원",
-    sector: "인터넷",
-    investmentPoints: [
-      "국내 검색 시장 압도적 1위",
-      "클라우드 및 AI 기술 역량 강화",
-      "웹툰, 웹소설 등 콘텐츠 IP 보유",
-      "커머스 및 핀테크 사업 확장",
-    ],
-    upwardMomentum2025: [
-      "하이퍼클로바X 등 생성형 AI 서비스 상용화",
-      "네이버클라우드플랫폼 매출 급성장",
-      "글로벌 웹툰 시장 확대 및 IP 사업 성장",
-      "네이버페이 등 핀테크 수익 기여도 확대",
-    ],
-    downwardRisks2025: [
-      "구글, 마이크로소프트 등 글로벌 빅테크 경쟁 심화",
-      "AI 기술 투자 비용 증가",
-      "개인정보보호 규제 강화",
-      "광고 시장 성장 둔화",
-    ],
-    rating: "보유",
-    targetPrice: "220,000원",
-    currentPrice: "195,000원",
-  },
-  {
-    name: "카카오",
-    code: "035720",
-    theme: "반도체 & IT",
-    marketCap: "25조원",
-    sector: "인터넷",
-    investmentPoints: [
-      "국내 모바일 메신저 독점",
-      "플랫폼 기반 다양한 사업 포트폴리오",
-      "카카오뱅크, 카카오페이 등 핀테크 강자",
-      "카카오엔터테인먼트 콘텐츠 경쟁력",
-    ],
-    upwardMomentum2025: [
-      "카카오뱅크 수익성 개선 및 대출 성장",
-      "카카오페이 결제 생태계 확장",
-      "AI 기반 개인화 서비스 고도화",
-      "해외 진출 확대 및 글로벌 성장",
-    ],
-    downwardRisks2025: [
-      "규제 당국의 플랫폼 규제 강화",
-      "경쟁 플랫폼 등장에 따른 점유율 하락",
-      "개인정보 관련 이슈 및 사회적 책임",
-      "핀테크 경쟁 심화",
-    ],
-    rating: "보유",
-    targetPrice: "65,000원",
-    currentPrice: "58,000원",
-  },
-  {
-    name: "LG전자",
-    code: "066570",
-    theme: "반도체 & IT",
-    marketCap: "15조원",
-    sector: "가전",
-    investmentPoints: [
-      "프리미엄 가전 브랜드 경쟁력",
-      "전기차 부품 사업 성장",
-      "B2B 솔루션 사업 확대",
-      "AI 가전 기술 선도",
-    ],
-    upwardMomentum2025: [
-      "전기차 배터리팩, 인포테인먼트 시스템 수주 확대",
-      "AI 가전 및 스마트홈 시장 성장",
-      "프리미엄 가전 해외 진출 가속화",
-      "B2B 솔루션 매출 비중 확대",
-    ],
-    downwardRisks2025: [
-      "글로벌 가전 시장 경쟁 심화",
-      "원자재 가격 상승 압박",
-      "전기차 시장 성장 둔화 우려",
-      "환율 변동 리스크",
-    ],
-    rating: "보유",
-    targetPrice: "120,000원",
-    currentPrice: "105,000원",
-  },
-  {
-    name: "SK텔레콤",
-    code: "017670",
-    theme: "반도체 & IT",
-    marketCap: "20조원",
-    sector: "통신",
-    investmentPoints: [
-      "5G 네트워크 인프라 선도",
-      "AI 및 클라우드 서비스 강화",
-      "미디어 콘텐츠 사업 확장",
-      "안정적인 배당 수익",
-    ],
-    upwardMomentum2025: [
-      "5G 기업 서비스 본격 확산",
-      "AI 컴퍼니 전환 가속화",
-      "클라우드 및 보안 서비스 성장",
-      "메타버스 및 디지털 트윈 사업 확대",
-    ],
-    downwardRisks2025: ["통신 시장 포화 및 요금 경쟁 심화", "5G 투자 비용 부담", "OTT 경쟁 심화", "규제 환경 변화"],
-    rating: "보유",
-    targetPrice: "65,000원",
-    currentPrice: "58,000원",
-  },
-  {
-    name: "KT",
-    code: "030200",
-    theme: "반도체 & IT",
-    marketCap: "12조원",
-    sector: "통신",
-    investmentPoints: [
-      "통신 인프라 및 기업 서비스 강점",
-      "AI 및 디지털 전환 솔루션",
-      "부동산 자산 가치",
-      "안정적인 현금흐름",
-    ],
-    upwardMomentum2025: [
-      "기업 대상 DX 솔루션 매출 확대",
-      "AI 기반 서비스 상용화",
-      "부동산 개발 사업 수익 기여",
-      "해외 사업 확장",
-    ],
-    downwardRisks2025: ["통신 시장 성장 한계", "경쟁사 대비 5G 투자 지연", "레거시 사업 의존도", "부채 비율 부담"],
-    rating: "보유",
-    targetPrice: "45,000원",
-    currentPrice: "38,000원",
-  },
-  {
-    name: "LG유플러스",
-    code: "032640",
-    theme: "반도체 & IT",
-    marketCap: "8조원",
-    sector: "통신",
-    investmentPoints: [
-      "5G 품질 경쟁력",
-      "IPTV 및 미디어 서비스 강점",
-      "기업 솔루션 사업 성장",
-      "효율적인 네트워크 운영",
-    ],
-    upwardMomentum2025: [
-      "5G 기업 서비스 확대",
-      "미디어 콘텐츠 차별화",
-      "IoT 및 스마트시티 솔루션 성장",
-      "해외 진출 확대",
-    ],
-    downwardRisks2025: ["통신 3사 경쟁 심화", "콘텐츠 투자 비용 증가", "규제 리스크", "시장 점유율 한계"],
-    rating: "보유",
-    targetPrice: "15,000원",
-    currentPrice: "13,500원",
-  },
-  {
-    name: "삼성SDS",
-    code: "018260",
-    theme: "반도체 & IT",
-    marketCap: "20조원",
-    sector: "IT서비스",
-    investmentPoints: [
-      "기업 IT 솔루션 전문성",
-      "삼성그룹 내 IT 허브 역할",
-      "클라우드 및 AI 기술 역량",
-      "글로벌 사업 확장",
-    ],
-    upwardMomentum2025: [
-      "디지털 전환 수요 확대",
-      "AI 및 자동화 솔루션 성장",
-      "해외 대형 프로젝트 수주",
-      "물류 IT 솔루션 글로벌 확산",
-    ],
-    downwardRisks2025: ["IT 서비스 시장 경쟁 심화", "프로젝트 수주 변동성", "인건비 상승 압박", "기술 투자 비용 증가"],
-    rating: "보유",
-    targetPrice: "180,000원",
-    currentPrice: "165,000원",
-  },
-  {
-    name: "LG CNS",
-    code: "108670",
-    theme: "반도체 & IT",
-    marketCap: "3조원",
-    sector: "IT서비스",
-    investmentPoints: ["DX 전문 기업으로 포지셔닝", "AI 및 빅데이터 역량", "공공 및 금융 분야 강점", "LG그룹 시너지"],
-    upwardMomentum2025: ["기업 디지털 전환 가속화", "AI 솔루션 상용화", "스마트팩토리 시장 확대", "해외 진출 확대"],
-    downwardRisks2025: [
-      "대형 IT 업체와의 경쟁",
-      "프로젝트 의존적 수익 구조",
-      "기술 인력 확보 어려움",
-      "투자 회수 기간 장기화",
-    ],
-    rating: "보유",
-    targetPrice: "25,000원",
-    currentPrice: "22,000원",
-  },
-  {
-    name: "한글과컴퓨터",
-    code: "030520",
-    theme: "반도체 & IT",
-    marketCap: "1조원",
-    sector: "소프트웨어",
-    investmentPoints: [
-      "국산 오피스 소프트웨어 독점",
-      "공공기관 레퍼런스 보유",
-      "AI 및 클라우드 기술 접목",
-      "보안 솔루션 사업 확장",
-    ],
-    upwardMomentum2025: [
-      "공공기관 국산 SW 의무 사용 확대",
-      "AI 기반 오피스 솔루션 출시",
-      "클라우드 오피스 시장 진출",
-      "해외 진출 가능성",
-    ],
-    downwardRisks2025: [
-      "마이크로소프트 등 글로벌 업체 경쟁",
-      "시장 규모 한계",
-      "기술 혁신 속도",
-      "구독 모델 전환 리스크",
-    ],
-    rating: "보유",
-    targetPrice: "18,000원",
-    currentPrice: "15,500원",
-  },
-  {
-    name: "안랩",
-    code: "053800",
-    theme: "반도체 & IT",
-    marketCap: "8000억원",
-    sector: "보안",
-    investmentPoints: [
-      "국내 보안 소프트웨어 1위",
-      "AI 기반 보안 기술 선도",
-      "기업 보안 솔루션 강점",
-      "정부 및 공공기관 신뢰도",
-    ],
-    upwardMomentum2025: [
-      "사이버 보안 위협 증가로 시장 확대",
-      "AI 보안 솔루션 상용화",
-      "클라우드 보안 서비스 성장",
-      "해외 진출 본격화",
-    ],
-    downwardRisks2025: ["글로벌 보안 업체와의 경쟁", "기술 투자 비용 부담", "인재 확보 경쟁", "시장 포화 우려"],
-    rating: "보유",
-    targetPrice: "85,000원",
-    currentPrice: "75,000원",
-  },
-  {
-    name: "티맥스",
-    code: "192080",
-    theme: "반도체 & IT",
-    marketCap: "5000억원",
-    sector: "소프트웨어",
-    investmentPoints: [
-      "미들웨어 및 데이터베이스 기술",
-      "금융권 레퍼런스 보유",
-      "클라우드 네이티브 기술",
-      "AI 플랫폼 개발",
-    ],
-    upwardMomentum2025: [
-      "디지털 전환으로 미들웨어 수요 증가",
-      "클라우드 마이그레이션 서비스 확대",
-      "AI 플랫폼 상용화",
-      "해외 시장 진출",
-    ],
-    downwardRisks2025: ["오라클 등 글로벌 업체 경쟁", "기술 투자 비용", "시장 인지도 한계", "인력 확보 어려움"],
-    rating: "보유",
-    targetPrice: "45,000원",
-    currentPrice: "38,000원",
-  },
-  {
-    name: "더존비즈온",
-    code: "012510",
-    theme: "반도체 & IT",
-    marketCap: "2조원",
-    sector: "소프트웨어",
-    investmentPoints: [
-      "중소기업 ERP 시장 1위",
-      "클라우드 기반 서비스 전환",
-      "AI 회계 솔루션 개발",
-      "안정적인 구독 수익 모델",
-    ],
-    upwardMomentum2025: [
-      "중소기업 디지털 전환 가속화",
-      "클라우드 ERP 시장 확대",
-      "AI 기반 자동화 솔루션 출시",
-      "해외 진출 확대",
-    ],
-    downwardRisks2025: ["SAP 등 글로벌 ERP 업체 경쟁", "클라우드 전환 비용", "중소기업 경기 둔화", "기술 투자 부담"],
-    rating: "보유",
-    targetPrice: "35,000원",
-    currentPrice: "32,000원",
-  },
-  {
-    name: "NAVER클라우드플랫폼",
-    code: "373220",
-    theme: "반도체 & IT",
-    marketCap: "3조원",
-    sector: "클라우드",
-    investmentPoints: [
-      "국내 클라우드 시장 선도",
-      "AI 및 빅데이터 기술 역량",
-      "정부 및 공공기관 레퍼런스",
-      "네이버 생태계 시너지",
-    ],
-    upwardMomentum2025: [
-      "디지털 전환 가속화로 클라우드 수요 급증",
-      "AI 서비스 상용화 및 매출 기여",
-      "해외 진출 본격화",
-      "하이브리드 클라우드 솔루션 확대",
-    ],
-    downwardRisks2025: [
-      "AWS, 마이크로소프트 등 글로벌 경쟁 심화",
-      "초기 투자 비용 부담",
-      "인재 확보 경쟁",
-      "기술 변화 속도",
-    ],
-    rating: "매수",
-    targetPrice: "45,000원",
-    currentPrice: "35,000원",
-  },
+interface CompanyExplorerProps {
+  companyData: Company[];
+  themes: string[];
+  stockData: Record<string, StockData>;
+  isConnected: boolean;
+}
 
-  // 2. 2차전지 & 전기차 테마 (15개)
-  {
-    name: "LG에너지솔루션",
-    code: "373220",
-    theme: "2차전지 & 전기차",
-    marketCap: "100조원",
-    sector: "배터리",
-    investmentPoints: [
-      "글로벌 배터리 시장 2위",
-      "테슬라, GM 등 주요 완성차 고객",
-      "NCM 배터리 기술 선도",
-      "북미 생산 기지 확대",
-    ],
-    upwardMomentum2025: [
-      "북미 IRA 혜택으로 수익성 개선",
-      "전기차 시장 성장 가속화",
-      "ESS 시장 본격 확대",
-      "차세대 배터리 기술 상용화",
-    ],
-    downwardRisks2025: [
-      "중국 배터리 업체와의 가격 경쟁",
-      "원자재 가격 변동성",
-      "전기차 보급 속도 조절",
-      "기술 변화 리스크",
-    ],
-    rating: "매수",
-    targetPrice: "550,000원",
-    currentPrice: "485,000원",
-  },
-  {
-    name: "삼성SDI",
-    code: "006400",
-    theme: "2차전지 & 전기차",
-    marketCap: "60조원",
-    sector: "배터리",
-    investmentPoints: [
-      "프리미엄 배터리 기술력",
-      "BMW, 볼보 등 유럽 고객사",
-      "전고체 배터리 기술 선도",
-      "ESS 사업 성장",
-    ],
-    upwardMomentum2025: [
-      "유럽 배터리 공장 본격 가동",
-      "프리미엄 전기차 시장 확대",
-      "전고체 배터리 상용화 임박",
-      "ESS 글로벌 수주 확대",
-    ],
-    downwardRisks2025: ["배터리 시장 경쟁 심화", "유럽 경기 둔화 우려", "기술 투자 비용 증가", "환율 변동 리스크"],
-    rating: "매수",
-    targetPrice: "650,000원",
-    currentPrice: "580,000원",
-  },
-  {
-    name: "SK이노베이션",
-    code: "096770",
-    theme: "2차전지 & 전기차",
-    marketCap: "25조원",
-    sector: "배터리",
-    investmentPoints: [
-      "배터리 사업 분할 상장 예정",
-      "포드, 현대차 등 파트너십",
-      "NCM 고니켈 배터리 기술",
-      "석유화학 안정적 수익",
-    ],
-    upwardMomentum2025: [
-      "SK온 분할 상장으로 가치 재평가",
-      "북미 배터리 공장 확대",
-      "배터리 수익성 개선",
-      "석유화학 업황 회복",
-    ],
-    downwardRisks2025: ["배터리 사업 적자 지속", "분할 과정의 불확실성", "석유화학 시황 변동", "환경 규제 강화"],
-    rating: "보유",
-    targetPrice: "180,000원",
-    currentPrice: "165,000원",
-  },
-  {
-    name: "포스코케미칼",
-    code: "003670",
-    theme: "2차전지 & 전기차",
-    marketCap: "15조원",
-    sector: "배터리소재",
-    investmentPoints: [
-      "배터리 양극재 글로벌 톱티어",
-      "리튬 광산 투자로 원료 수직계열화",
-      "고니켈 양극재 기술 선도",
-      "ESS용 배터리 소재 확대",
-    ],
-    upwardMomentum2025: [
-      "전기차 배터리 수요 급증",
-      "리튬 광산 투자 수익 기여",
-      "고부가가치 소재 비중 확대",
-      "중국 시장 진출 확대",
-    ],
-    downwardRisks2025: ["리튬 가격 변동성", "중국 업체와의 경쟁", "기술 변화 리스크", "환경 규제 강화"],
-    rating: "매수",
-    targetPrice: "450,000원",
-    currentPrice: "385,000원",
-  },
-  {
-    name: "에코프로비엠",
-    code: "247540",
-    theme: "2차전지 & 전기차",
-    marketCap: "20조원",
-    sector: "배터리소재",
-    investmentPoints: [
-      "양극재 전문 기업",
-      "삼성SDI, SK온 주요 고객",
-      "고니켈 NCM 기술 경쟁력",
-      "글로벌 생산 기지 확대",
-    ],
-    upwardMomentum2025: [
-      "전기차 배터리 수요 폭증",
-      "고부가가치 제품 비중 확대",
-      "해외 생산 기지 본격 가동",
-      "신규 고객사 확보",
-    ],
-    downwardRisks2025: ["원자재 가격 상승", "경쟁사 기술 추격", "고객사 집중도 리스크", "환율 변동 영향"],
-    rating: "매수",
-    targetPrice: "350,000원",
-    currentPrice: "295,000원",
-  },
-  {
-    name: "현대자동차",
-    code: "005380",
-    theme: "2차전지 & 전기차",
-    marketCap: "80조원",
-    sector: "자동차",
-    investmentPoints: [
-      "아이오닉 시리즈 글로벌 성공",
-      "E-GMP 플랫폼 경쟁력",
-      "수소차 기술 세계 최고 수준",
-      "자율주행 및 모빌리티 서비스 진출",
-    ],
-    upwardMomentum2025: [
-      "전기차 판매 급성장으로 시장 점유율 확대",
-      "북미 전기차 공장 본격 가동",
-      "수소차 상용화 및 인프라 확산",
-      "자율주행 레벨4 상용화 임박",
-    ],
-    downwardRisks2025: [
-      "글로벌 자동차 시장 성장 둔화",
-      "중국 전기차 업체들의 급성장",
-      "배터리 공급망 불안정성",
-      "환율 변동 및 원자재 가격 상승",
-    ],
-    rating: "매수",
-    targetPrice: "280,000원",
-    currentPrice: "245,000원",
-  },
-  {
-    name: "기아",
-    code: "000270",
-    theme: "2차전지 & 전기차",
-    marketCap: "40조원",
-    sector: "자동차",
-    investmentPoints: [
-      "EV6, EV9 등 전기차 라인업 강화",
-      "디자인 혁신으로 브랜드 가치 상승",
-      "PBV(목적기반차량) 사업 진출",
-      "글로벌 시장 점유율 지속 확대",
-    ],
-    upwardMomentum2025: ["전기차 판매 급성장", "PBV 시장 선점", "프리미엄 브랜드 포지셔닝", "해외 생산 기지 확대"],
-    downwardRisks2025: ["전기차 시장 경쟁 심화", "원자재 가격 상승", "글로벌 경기 둔화", "환율 리스크"],
-    rating: "매수",
-    targetPrice: "120,000원",
-    currentPrice: "105,000원",
-  },
-  {
-    name: "현대모비스",
-    code: "012330",
-    theme: "2차전지 & 전기차",
-    marketCap: "30조원",
-    sector: "자동차부품",
-    investmentPoints: ["전기차 부품 사업 확대", "자율주행 기술 개발", "현대차그룹 시너지", "글로벌 부품 공급망"],
-    upwardMomentum2025: [
-      "전기차 부품 매출 비중 확대",
-      "자율주행 부품 상용화",
-      "해외 고객사 확보",
-      "신기술 투자 수익 실현",
-    ],
-    downwardRisks2025: ["자동차 시장 변화 속도", "기술 투자 비용 부담", "고객사 집중도 리스크", "글로벌 경쟁 심화"],
-    rating: "보유",
-    targetPrice: "280,000원",
-    currentPrice: "255,000원",
-  },
-  {
-    name: "LG화학",
-    code: "051910",
-    theme: "2차전지 & 전기차",
-    marketCap: "50조원",
-    sector: "화학",
-    investmentPoints: ["배터리 소재 사업 성장", "석유화학 안정적 수익", "첨단소재 기술 역량", "글로벌 사업 다각화"],
-    upwardMomentum2025: ["배터리 소재 수요 급증", "석유화학 업황 회복", "바이오 소재 사업 확대", "중국 시장 회복"],
-    downwardRisks2025: ["원자재 가격 변동성", "중국 경기 둔화", "환경 규제 강화", "경쟁사 기술 추격"],
-    rating: "보유",
-    targetPrice: "420,000원",
-    currentPrice: "385,000원",
-  },
-  {
-    name: "솔루스첨단소재",
-    code: "336370",
-    theme: "2차전지 & 전기차",
-    marketCap: "8조원",
-    sector: "배터리소재",
-    investmentPoints: ["동박 시장 글로벌 1위", "전기차 배터리용 동박 특화", "기술 진입장벽 높음", "고객사 다변화 성공"],
-    upwardMomentum2025: [
-      "전기차 배터리 수요 폭증",
-      "프리미엄 동박 시장 확대",
-      "해외 생산 기지 확대",
-      "신규 응용 분야 개척",
-    ],
-    downwardRisks2025: ["구리 가격 변동성", "중국 업체 기술 추격", "고객사 집중도 리스크", "환율 변동 영향"],
-    rating: "매수",
-    targetPrice: "85,000원",
-    currentPrice: "72,000원",
-  },
-  {
-    name: "일진머티리얼즈",
-    code: "020150",
-    theme: "2차전지 & 전기차",
-    marketCap: "3조원",
-    sector: "배터리소재",
-    investmentPoints: ["음극재 전문 기업", "인조흑연 기술 경쟁력", "중국 시장 진출 성공", "ESS용 음극재 확대"],
-    upwardMomentum2025: ["전기차 배터리 수요 증가", "고성능 음극재 시장 확대", "중국 고객사 확보", "ESS 시장 성장"],
-    downwardRisks2025: ["중국 업체와의 가격 경쟁", "원자재 가격 상승", "기술 변화 리스크", "환율 변동 영향"],
-    rating: "보유",
-    targetPrice: "45,000원",
-    currentPrice: "38,000원",
-  },
-  {
-    name: "엘앤에프",
-    code: "066970",
-    theme: "2차전지 & 전기차",
-    marketCap: "12조원",
-    sector: "배터리소재",
-    investmentPoints: ["양극재 소재 전문 기업", "테슬라 공급망 진입", "고니켈 NCM 기술", "글로벌 생산 네트워크"],
-    upwardMomentum2025: ["테슬라 물량 확대", "프리미엄 양극재 수요 증가", "해외 생산 기지 가동", "신규 고객사 확보"],
-    downwardRisks2025: ["고객사 집중도 리스크", "원자재 가격 변동", "기술 경쟁 심화", "환율 변동 영향"],
-    rating: "매수",
-    targetPrice: "280,000원",
-    currentPrice: "245,000원",
-  },
-  {
-    name: "코스모화학",
-    code: "005420",
-    theme: "2차전지 & 전기차",
-    marketCap: "2조원",
-    sector: "배터리소재",
-    investmentPoints: ["전해액 전문 기업", "LG에너지솔루션 주요 공급사", "첨가제 기술 경쟁력", "중국 시장 진출"],
-    upwardMomentum2025: ["전기차 배터리 수요 증가", "고성능 전해액 시장 확대", "중국 고객사 확보", "신규 첨가제 개발"],
-    downwardRisks2025: ["중국 업체와의 경쟁", "원자재 가격 상승", "고객사 의존도", "기술 변화 리스크"],
-    rating: "보유",
-    targetPrice: "35,000원",
-    currentPrice: "31,000원",
-  },
-  {
-    name: "천보",
-    code: "278280",
-    theme: "2차전지 & 전기차",
-    marketCap: "1조원",
-    sector: "배터리소재",
-    investmentPoints: ["리튬 화합물 전문 기업", "수산화리튬 기술 보유", "중국 시장 진출 성공", "원료 조달 네트워크"],
-    upwardMomentum2025: ["리튬 수요 급증", "고순도 리튬 화합물 시장 확대", "중국 고객사 확보", "원료 수직계열화"],
-    downwardRisks2025: ["리튬 가격 변동성", "중국 업체 경쟁", "환경 규제 강화", "기술 변화 리스크"],
-    rating: "보유",
-    targetPrice: "25,000원",
-    currentPrice: "22,000원",
-  },
-  {
-    name: "후성",
-    code: "093370",
-    theme: "2차전지 & 전기차",
-    marketCap: "8000억원",
-    sector: "배터리소재",
-    investmentPoints: ["전해액 및 첨가제 생산", "반도체 화학 소재 사업", "중국 생산 기지 보유", "기술 개발 역량"],
-    upwardMomentum2025: ["배터리 전해액 수요 증가", "반도체 소재 시장 회복", "중국 시장 확대", "신규 제품 개발"],
-    downwardRisks2025: ["중국 업체와의 경쟁", "원자재 가격 상승", "환율 변동 리스크", "기술 투자 부담"],
-    rating: "보유",
-    targetPrice: "18,000원",
-    currentPrice: "15,500원",
-  },
+export default function CompanyExplorer({ companyData, themes, stockData, isConnected }: CompanyExplorerProps) {
+  const [selectedTheme, setSelectedTheme] = useState('전체');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [geminiInsight, setGeminiInsight] = useState<string | null>(null);
+  const [showGeminiInsightDialog, setShowGeminiInsightDialog] = useState(false); // Changed state name for dialog
+  const [loadingGeminiInsight, setLoadingGeminiInsight] = useState(false); // For loading state
+  const [currentInsightCompany, setCurrentInsightCompany] = useState<{ name: string; stockCode: string } | null>(null); // To store company info for dialog title
+  const [hasUserClosedDialog, setHasUserClosedDialog] = useState(false); // New state to track user closing dialog
 
-  // 3. 바이오 & 헬스케어 테마 (15개)
-  {
-    name: "삼성바이오로직스",
-    code: "207940",
-    theme: "바이오 & 헬스케어",
-    marketCap: "120조원",
-    sector: "바이오의약품",
-    investmentPoints: [
-      "글로벌 CDMO 1위 기업",
-      "4공장 조기 가동으로 생산능력 확대",
-      "글로벌 제약사와 장기 계약",
-      "바이오시밀러 사업 성장",
-    ],
-    upwardMomentum2025: [
-      "바이오의약품 시장 지속 성장",
-      "4공장 풀가동으로 매출 급증",
-      "5공장 건설 계획으로 성장 지속",
-      "바이오시밀러 글로벌 진출 확대",
-    ],
-    downwardRisks2025: [
-      "글로벌 제약사 재고 조정",
-      "바이오시밀러 경쟁 심화",
-      "환율 변동 리스크",
-      "높은 밸류에이션 부담",
-    ],
-    rating: "매수",
-    targetPrice: "950,000원",
-    currentPrice: "825,000원",
-  },
-  {
-    name: "셀트리온",
-    code: "068270",
-    theme: "바이오 & 헬스케어",
-    marketCap: "25조원",
-    sector: "바이오의약품",
-    investmentPoints: [
-      "바이오시밀러 글로벌 선도 기업",
-      "항체 치료제 개발 역량",
-      "유럽, 미국 시장 진출 성공",
-      "자가면역질환 치료제 포트폴리오",
-    ],
-    upwardMomentum2025: [
-      "신규 바이오시밀러 출시",
-      "미국 시장 본격 진출",
-      "항체 신약 개발 성과",
-      "글로벌 파트너십 확대",
-    ],
-    downwardRisks2025: ["오리지널 의약품과의 가격 경쟁", "규제 환경 변화", "신약 개발 리스크", "환율 변동 영향"],
-    rating: "매수",
-    targetPrice: "220,000원",
-    currentPrice: "185,000원",
-  },
-  {
-    name: "유한양행",
-    code: "000100",
-    theme: "바이오 & 헬스케어",
-    marketCap: "8조원",
-    sector: "제약",
-    investmentPoints: ["국내 제약 업계 선도 기업", "항암제 개발 역량", "중국 시장 진출 성공", "안정적인 제네릭 사업"],
-    upwardMomentum2025: ["항암 신약 임상 성과", "중국 시장 확대", "디지털 헬스케어 진출", "글로벌 라이센싱 확대"],
-    downwardRisks2025: ["신약 개발 실패 리스크", "중국 시장 경쟁 심화", "제네릭 가격 하락", "규제 환경 변화"],
-    rating: "보유",
-    targetPrice: "85,000원",
-    currentPrice: "78,000원",
-  },
-  {
-    name: "녹십자",
-    code: "006280",
-    theme: "바이오 & 헬스케어",
-    marketCap: "5조원",
-    sector: "제약",
-    investmentPoints: ["혈액제제 전문 기업", "백신 개발 역량", "플라즈마 사업 안정성", "글로벌 진출 확대"],
-    upwardMomentum2025: ["신규 백신 출시", "혈액제제 수요 증가", "해외 시장 진출 확대", "바이오 신약 개발"],
-    downwardRisks2025: ["백신 시장 경쟁 심화", "원료 수급 불안정", "규제 리스크", "신약 개발 지연"],
-    rating: "보유",
-    targetPrice: "45,000원",
-    currentPrice: "41,000원",
-  },
-  {
-    name: "한미약품",
-    code: "128940",
-    theme: "바이오 & 헬스케어",
-    marketCap: "15조원",
-    sector: "제약",
-    investmentPoints: ["신약 개발 전문 기업", "글로벌 라이센싱 성공", "당뇨병 치료제 경쟁력", "바이오베터 기술"],
-    upwardMomentum2025: [
-      "신약 라이센싱 수익 확대",
-      "당뇨병 치료제 시장 성장",
-      "바이오베터 제품 출시",
-      "글로벌 파트너십 강화",
-    ],
-    downwardRisks2025: ["신약 개발 실패 리스크", "라이센싱 수익 변동성", "경쟁 제품 출시", "규제 환경 변화"],
-    rating: "매수",
-    targetPrice: "420,000원",
-    currentPrice: "365,000원",
-  },
-  {
-    name: "대웅제약",
-    code: "069620",
-    theme: "바이오 & 헬스케어",
-    marketCap: "3조원",
-    sector: "제약",
-    investmentPoints: [
-      "소화기 질환 치료제 강점",
-      "중국 시장 진출 성공",
-      "신약 개발 파이프라인",
-      "안정적인 제네릭 사업",
-    ],
-    upwardMomentum2025: ["중국 시장 확대", "신약 임상 성과", "소화기 치료제 시장 성장", "바이오 신약 개발"],
-    downwardRisks2025: ["중국 시장 경쟁 심화", "신약 개발 지연", "제네릭 가격 하락", "환율 변동 리스크"],
-    rating: "보유",
-    targetPrice: "180,000원",
-    currentPrice: "165,000원",
-  },
-  {
-    name: "종근당",
-    code: "185750",
-    theme: "바이오 & 헬스케어",
-    marketCap: "2조원",
-    sector: "제약",
-    investmentPoints: ["소화기 및 간질환 치료제", "중국 시장 진출", "신약 개발 역량", "안정적인 수익 구조"],
-    upwardMomentum2025: ["간질환 치료제 시장 확대", "중국 진출 확대", "신약 라이센싱", "디지털 헬스케어 진출"],
-    downwardRisks2025: ["경쟁 제품 출시", "중국 시장 리스크", "신약 개발 실패", "규제 환경 변화"],
-    rating: "보유",
-    targetPrice: "25,000원",
-    currentPrice: "22,500원",
-  },
-  {
-    name: "JW중외제약",
-    code: "001060",
-    theme: "바이오 & 헬스케어",
-    marketCap: "1조원",
-    sector: "제약",
-    investmentPoints: ["항암제 개발 전문성", "글로벌 라이센싱 경험", "중국 시장 진출", "바이오 신약 파이프라인"],
-    upwardMomentum2025: ["항암 신약 임상 성과", "글로벌 라이센싱 확대", "중국 시장 성장", "바이오 신약 개발"],
-    downwardRisks2025: ["신약 개발 실패 리스크", "항암제 시장 경쟁", "중국 시장 불확실성", "임상 비용 증가"],
-    rating: "보유",
-    targetPrice: "35,000원",
-    currentPrice: "31,000원",
-  },
-  {
-    name: "동아에스티",
-    code: "170900",
-    theme: "바이오 & 헬스케어",
-    marketCap: "8000억원",
-    sector: "제약",
-    investmentPoints: ["소화기 질환 치료제 강점", "베트남 시장 진출 성공", "신약 개발 역량", "안정적인 매출 구조"],
-    upwardMomentum2025: ["베트남 시장 확대", "신약 출시", "소화기 치료제 성장", "동남아 진출 확대"],
-    downwardRisks2025: ["해외 시장 리스크", "경쟁 제품 출시", "신약 개발 지연", "환율 변동 영향"],
-    rating: "보유",
-    targetPrice: "85,000원",
-    currentPrice: "78,000원",
-  },
-  {
-    name: "메디톡스",
-    code: "086900",
-    theme: "바이오 & 헬스케어",
-    marketCap: "12조원",
-    sector: "바이오의약품",
-    investmentPoints: ["보톡스 전문 기업", "미용 의료 시장 성장", "글로벌 진출 확대", "신규 적응증 개발"],
-    upwardMomentum2025: ["미용 의료 시장 확대", "해외 시장 진출 가속화", "신규 적응증 승인", "경쟁 제품 대비 우위"],
-    downwardRisks2025: ["경쟁 제품 출시", "규제 환경 변화", "특허 만료 리스크", "시장 포화 우려"],
-    rating: "매수",
-    targetPrice: "280,000원",
-    currentPrice: "245,000원",
-  },
-  {
-    name: "신풍제약",
-    code: "019170",
-    theme: "바이오 & 헬스케어",
-    marketCap: "5000억원",
-    sector: "제약",
-    investmentPoints: ["발기부전 치료제 전문", "중국 시장 진출 성공", "신약 개발 파이프라인", "안정적인 수익 모델"],
-    upwardMomentum2025: ["중국 시장 확대", "신규 적응증 개발", "글로벌 라이센싱", "디지털 헬스케어 진출"],
-    downwardRisks2025: ["중국 시장 경쟁 심화", "특허 만료 리스크", "신약 개발 지연", "규제 환경 변화"],
-    rating: "보유",
-    targetPrice: "45,000원",
-    currentPrice: "41,000원",
-  },
-  {
-    name: "바이넥스",
-    code: "053030",
-    theme: "바이오 & 헬스케어",
-    marketCap: "3000억원",
-    sector: "바이오의약품",
-    investmentPoints: ["항체 치료제 개발", "면역항암제 전문성", "글로벌 임상 진행", "기술 플랫폼 보유"],
-    upwardMomentum2025: [
-      "항체 신약 임상 성과",
-      "글로벌 라이센싱 기회",
-      "면역항암제 시장 성장",
-      "기술 플랫폼 활용 확대",
-    ],
-    downwardRisks2025: ["임상 실패 리스크", "자금 조달 필요성", "경쟁 치료제 출시", "규제 승인 지연"],
-    rating: "보유",
-    targetPrice: "25,000원",
-    currentPrice: "22,000원",
-  },
-  {
-    name: "압타바이오",
-    code: "196170",
-    theme: "바이오 & 헬스케어",
-    marketCap: "2000억원",
-    sector: "바이오의약품",
-    investmentPoints: ["압타머 기술 플랫폼", "안과 질환 치료제 개발", "글로벌 파트너십", "차세대 바이오 기술"],
-    upwardMomentum2025: ["압타머 신약 임상 성과", "안과 치료제 시장 확대", "글로벌 라이센싱", "기술 플랫폼 확장"],
-    downwardRisks2025: ["임상 개발 리스크", "자금 조달 부담", "기술 경쟁 심화", "시장 진입 지연"],
-    rating: "보유",
-    targetPrice: "18,000원",
-    currentPrice: "15,500원",
-  },
-  {
-    name: "레고켐바이오",
-    code: "141080",
-    theme: "바이오 & 헬스케어",
-    marketCap: "1조원",
-    sector: "바이오의약품",
-    investmentPoints: ["ADC 기술 플랫폼", "항체약물접합체 전문성", "글로벌 제약사 파트너십", "차세대 항암제 개발"],
-    upwardMomentum2025: ["ADC 신약 임상 성과", "글로벌 라이센싱 확대", "항암제 시장 성장", "기술 플랫폼 활용"],
-    downwardRisks2025: ["임상 실패 리스크", "ADC 시장 경쟁 심화", "자금 조달 필요성", "기술 개발 지연"],
-    rating: "보유",
-    targetPrice: "35,000원",
-    currentPrice: "31,000원",
-  },
-  {
-    name: "큐라클",
-    code: "365340",
-    theme: "바이오 & 헬스케어",
-    marketCap: "8000억원",
-    sector: "의료기기",
-    investmentPoints: ["AI 기반 의료영상 진단", "폐암 조기 진단 기술", "글로벌 의료기관 도입", "디지털 헬스케어 선도"],
-    upwardMomentum2025: [
-      "AI 의료 시장 급성장",
-      "해외 시장 진출 확대",
-      "신규 질환 진단 기술 개발",
-      "의료기관 도입 확산",
-    ],
-    downwardRisks2025: ["AI 기술 경쟁 심화", "규제 승인 지연", "의료기관 도입 속도", "기술 투자 비용"],
-    rating: "매수",
-    targetPrice: "45,000원",
-    currentPrice: "38,000원",
-  },
+  const handleGetGeminiInsight = async (stockCode: string, companyName: string) => {
+    setLoadingGeminiInsight(true);
+    setGeminiInsight(null); // Clear previous insight
+    setCurrentInsightCompany({ name: companyName, stockCode: stockCode }); // Set current company for dialog
+    setHasUserClosedDialog(false); // Reset flag for new analysis
+    setShowGeminiInsightDialog(true); // Open dialog immediately
 
-  // 4. 자동차 & 모빌리티 테마 (15개)
-  {
-    name: "현대자동차",
-    code: "005380",
-    theme: "자동차 & 모빌리티",
-    marketCap: "80조원",
-    sector: "자동차",
-    investmentPoints: [
-      "글로벌 완성차 5위 기업",
-      "전기차 아이오닉 시리즈 성공",
-      "수소차 기술 세계 최고 수준",
-      "자율주행 및 모빌리티 서비스 진출",
-    ],
-    upwardMomentum2025: [
-      "전기차 판매 급성장으로 시장 점유율 확대",
-      "북미 전기차 공장 본격 가동",
-      "수소차 상용화 및 인프라 확산",
-      "자율주행 레벨4 상용화 임박",
-    ],
-    downwardRisks2025: [
-      "글로벌 자동차 시장 성장 둔화",
-      "중국 전기차 업체들의 급성장",
-      "배터리 공급망 불안정성",
-      "환율 변동 및 원자재 가격 상승",
-    ],
-    rating: "매수",
-    targetPrice: "280,000원",
-    currentPrice: "245,000원",
-  },
-  {
-    name: "기아",
-    code: "000270",
-    theme: "자동차 & 모빌리티",
-    marketCap: "40조원",
-    sector: "자동차",
-    investmentPoints: [
-      "디자인 혁신으로 브랜드 가치 상승",
-      "EV6, EV9 등 전기차 라인업 강화",
-      "PBV(목적기반차량) 사업 진출",
-      "글로벌 시장 점유율 지속 확대",
-    ],
-    upwardMomentum2025: ["전기차 판매 급성장", "PBV 시장 선점", "프리미엄 브랜드 포지셔닝", "해외 생산 기지 확대"],
-    downwardRisks2025: ["전기차 시장 경쟁 심화", "원자재 가격 상승", "글로벌 경기 둔화", "환율 리스크"],
-    rating: "매수",
-    targetPrice: "120,000원",
-    currentPrice: "105,000원",
-  },
-  {
-    name: "현대모비스",
-    code: "012330",
-    theme: "자동차 & 모빌리티",
-    marketCap: "30조원",
-    sector: "자동차부품",
-    investmentPoints: ["전기차 부품 사업 확대", "자율주행 기술 개발", "현대차그룹 시너지", "글로벌 부품 공급망"],
-    upwardMomentum2025: [
-      "전기차 부품 매출 비중 확대",
-      "자율주행 부품 상용화",
-      "해외 고객사 확보",
-      "신기술 투자 수익 실현",
-    ],
-    downwardRisks2025: ["자동차 시장 변화 속도", "기술 투자 비용 부담", "고객사 집중도 리스크", "글로벌 경쟁 심화"],
-    rating: "보유",
-    targetPrice: "280,000원",
-    currentPrice: "255,000원",
-  },
-  {
-    name: "기아",
-    code: "000270",
-    theme: "자동차 & 모빌리티",
-    marketCap: "40조원",
-    sector: "자동차",
-    investmentPoints: [
-      "EV6, EV9 등 전기차 라인업 강화",
-      "디자인 경쟁력 및 브랜드 가치 상승",
-      "PBV 사업 진출",
-      "글로벌 시장 점유율 확대",
-    ],
-    upwardMomentum2025: ["전기차 판매 급성장", "PBV 시장 선점", "프리미엄 브랜드 포지셔닝", "해외 생산 기지 확대"],
-    downwardRisks2025: ["전기차 시장 경쟁 심화", "원자재 가격 상승", "글로벌 경기 둔화", "환율 리스크"],
-    rating: "매수",
-    targetPrice: "120,000원",
-    currentPrice: "105,000원",
-  },
-  {
-    name: "현대글로비스",
-    code: "086280",
-    theme: "자동차 & 모빌리티",
-    marketCap: "8조원",
-    sector: "물류",
-    investmentPoints: [
-      "현대차그룹 전용 물류 서비스",
-      "완성차 운송 및 선박 운영",
-      "글로벌 물류 네트워크 구축",
-      "신차 출고 대행 서비스",
-    ],
-    upwardMomentum2025: [
-      "전기차 물류 특화 서비스 확대",
-      "해외 물류 거점 확장",
-      "디지털 물류 플랫폼 구축",
-      "친환경 물류 솔루션 도입",
-    ],
-    downwardRisks2025: ["자동차 시장 변동성", "물류비 상승 압박", "경쟁사 진입 확대", "환율 변동 리스크"],
-    rating: "보유",
-    targetPrice: "220,000원",
-    currentPrice: "195,000원",
-  },
-  {
-    name: "만도",
-    code: "204320",
-    theme: "자동차 & 모빌리티",
-    marketCap: "5조원",
-    sector: "자동차부품",
-    investmentPoints: [
-      "자율주행 센서 기술 선도",
-      "전기차 부품 사업 확대",
-      "글로벌 완성차 고객 확보",
-      "ADAS 시스템 전문성",
-    ],
-    upwardMomentum2025: [
-      "자율주행 센서 시장 급성장",
-      "전기차 부품 매출 비중 확대",
-      "해외 고객사 다변화",
-      "차세대 ADAS 기술 상용화",
-    ],
-    downwardRisks2025: ["자동차 시장 경쟁 심화", "기술 투자 비용 부담", "원자재 가격 상승", "고객사 집중도 리스크"],
-    rating: "매수",
-    targetPrice: "85,000원",
-    currentPrice: "72,000원",
-  },
-  {
-    name: "현대위아",
-    code: "011210",
-    theme: "자동차 & 모빌리티",
-    marketCap: "3조원",
-    sector: "자동차부품",
-    investmentPoints: [
-      "엔진 및 변속기 부품 전문",
-      "전기차 부품 사업 전환",
-      "현대차그룹 주요 협력사",
-      "글로벌 생산 기지 운영",
-    ],
-    upwardMomentum2025: [
-      "전기차 부품 포트폴리오 확대",
-      "해외 생산 기지 활용",
-      "신기술 부품 개발",
-      "수소차 부품 사업 진출",
-    ],
-    downwardRisks2025: ["내연기관 부품 수요 감소", "전기차 전환 속도 조절", "경쟁사 기술 추격", "원자재 가격 변동"],
-    rating: "보유",
-    targetPrice: "45,000원",
-    currentPrice: "38,000원",
-  },
-  {
-    name: "한온시스템",
-    code: "018880",
-    theme: "자동차 & 모빌리티",
-    marketCap: "4조원",
-    sector: "자동차부품",
-    investmentPoints: [
-      "자동차 열관리 시스템 전문",
-      "전기차 배터리 냉각 시스템",
-      "글로벌 완성차 공급망",
-      "친환경 냉매 기술",
-    ],
-    upwardMomentum2025: [
-      "전기차 열관리 시스템 수요 급증",
-      "배터리 냉각 기술 선도",
-      "해외 시장 확대",
-      "차세대 냉매 기술 상용화",
-    ],
-    downwardRisks2025: ["자동차 시장 변동성", "원자재 가격 상승", "기술 경쟁 심화", "환율 변동 영향"],
-    rating: "보유",
-    targetPrice: "12,000원",
-    currentPrice: "10,500원",
-  },
-  {
-    name: "현대제철",
-    code: "004020",
-    theme: "자동차 & 모빌리티",
-    marketCap: "8조원",
-    sector: "철강",
-    investmentPoints: ["자동차용 특수강 전문", "전기차용 고강도강 개발", "현대차그룹 주요 공급사", "친환경 제철 기술"],
-    upwardMomentum2025: [
-      "전기차용 경량 소재 수요 증가",
-      "고강도강 기술 선도",
-      "친환경 제철 공정 도입",
-      "해외 시장 진출 확대",
-    ],
-    downwardRisks2025: ["철강 시황 변동성", "원료 가격 상승", "환경 규제 강화", "중국 철강 업체 경쟁"],
-    rating: "보유",
-    targetPrice: "55,000원",
-    currentPrice: "48,000원",
-  },
-  {
-    name: "카카오모빌리티",
-    code: "377300",
-    theme: "자동차 & 모빌리티",
-    marketCap: "3조원",
-    sector: "모빌리티",
-    investmentPoints: [
-      "국내 모빌리티 플랫폼 1위",
-      "카카오택시 압도적 점유율",
-      "대리운전 및 주차 서비스",
-      "자율주행 기술 개발",
-    ],
-    upwardMomentum2025: ["모빌리티 서비스 다각화", "자율주행 택시 상용화", "해외 진출 확대", "물류 모빌리티 진출"],
-    downwardRisks2025: ["경쟁 플랫폼 등장", "규제 환경 변화", "운전자 확보 어려움", "수익성 개선 과제"],
-    rating: "보유",
-    targetPrice: "85,000원",
-    currentPrice: "75,000원",
-  },
-  {
-    name: "HL만도",
-    code: "204320",
-    theme: "자동차 & 모빌리티",
-    marketCap: "5조원",
-    sector: "자동차부품",
-    investmentPoints: [
-      "브레이크 시스템 글로벌 선도",
-      "자율주행 센서 기술",
-      "전기차 부품 포트폴리오",
-      "ADAS 솔루션 전문성",
-    ],
-    upwardMomentum2025: [
-      "자율주행 부품 시장 확대",
-      "전기차 브레이크 시스템 성장",
-      "해외 고객사 확보",
-      "차세대 센서 기술 상용화",
-    ],
-    downwardRisks2025: ["자동차 부품 시장 경쟁", "기술 투자 비용 증가", "원자재 가격 상승", "고객사 의존도 리스크"],
-    rating: "매수",
-    targetPrice: "85,000원",
-    currentPrice: "72,000원",
-  },
-  {
-    name: "평화홀딩스",
-    code: "316140",
-    theme: "자동차 & 모빌리티",
-    marketCap: "2조원",
-    sector: "자동차부품",
-    investmentPoints: ["자동차 내장재 전문", "프리미엄 시트 제조", "글로벌 완성차 공급", "친환경 소재 개발"],
-    upwardMomentum2025: [
-      "프리미엄 자동차 시장 확대",
-      "친환경 내장재 수요 증가",
-      "해외 생산 기지 확대",
-      "전기차 내장재 특화",
-    ],
-    downwardRisks2025: ["자동차 시장 변동성", "원자재 가격 상승", "경쟁사 기술 추격", "환율 변동 리스크"],
-    rating: "보유",
-    targetPrice: "25,000원",
-    currentPrice: "22,000원",
-  },
-  {
-    name: "성우하이텍",
-    code: "015750",
-    theme: "자동차 & 모빌리티",
-    marketCap: "1조원",
-    sector: "자동차부품",
-    investmentPoints: ["자동차 전장 부품 전문", "전기차 충전 시스템", "스마트 팩토리 구축", "글로벌 고객사 확보"],
-    upwardMomentum2025: [
-      "전기차 전장 부품 수요 급증",
-      "충전 인프라 시장 확대",
-      "스마트 제조 시스템 도입",
-      "해외 시장 진출 확대",
-    ],
-    downwardRisks2025: ["전장 부품 시장 경쟁", "기술 변화 속도", "원자재 가격 변동", "고객사 집중도 리스크"],
-    rating: "보유",
-    targetPrice: "18,000원",
-    currentPrice: "15,500원",
-  },
-  {
-    name: "코스모신소재",
-    code: "005070",
-    theme: "자동차 & 모빌리티",
-    marketCap: "8000억원",
-    sector: "화학소재",
-    investmentPoints: ["자동차용 화학 소재", "전기차 배터리 소재", "친환경 소재 개발", "글로벌 공급망 구축"],
-    upwardMomentum2025: ["전기차 소재 수요 증가", "친환경 소재 시장 확대", "해외 고객사 확보", "신소재 기술 개발"],
-    downwardRisks2025: ["화학 소재 시장 경쟁", "원자재 가격 상승", "환경 규제 강화", "기술 투자 부담"],
-    rating: "보유",
-    targetPrice: "35,000원",
-    currentPrice: "31,000원",
-  },
-  {
-    name: "대성전기",
-    code: "117580",
-    theme: "자동차 & 모빌리티",
-    marketCap: "5000억원",
-    sector: "자동차부품",
-    investmentPoints: ["자동차 전기 시스템", "전기차 충전 솔루션", "스마트 그리드 기술", "신재생에너지 연계"],
-    upwardMomentum2025: [
-      "전기차 충전 인프라 확산",
-      "스마트 그리드 시장 성장",
-      "신재생에너지 연계 솔루션",
-      "해외 시장 진출",
-    ],
-    downwardRisks2025: ["충전 인프라 경쟁 심화", "기술 표준화 리스크", "정부 정책 변화", "투자 회수 기간 장기화"],
-    rating: "보유",
-    targetPrice: "28,000원",
-    currentPrice: "24,000원",
-  },
+    try {
+      const response = await fetch('/api/gemini-insight', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ stockCode, companyName }),
+      });
 
-  // 5. 신재생에너지 & 친환경 테마 추가 (15개 기업)
-  {
-    name: "한화솔루션",
-    code: "009830",
-    theme: "신재생에너지 & 친환경",
-    marketCap: "25조원",
-    sector: "태양광",
-    investmentPoints: [
-      "태양광 밸류체인 수직계열화",
-      "미국 IRA 정책 최대 수혜",
-      "폴리실리콘-셀-모듈 일관생산",
-      "안정적인 화학 사업 포트폴리오",
-    ],
-    upwardMomentum2025: [
-      "미국 태양광 시장 확대",
-      "IRA 세액공제 혜택 극대화",
-      "고효율 태양광 모듈 출시",
-      "유럽 시장 진출 확대",
-    ],
-    downwardRisks2025: ["중국 저가 모듈 경쟁", "화학 사업 시황 변동", "정책 변화 리스크", "원자재 가격 상승"],
-    rating: "매수",
-    targetPrice: "45,000원",
-    currentPrice: "38,000원",
-  },
-  {
-    name: "한국전력",
-    code: "015760",
-    theme: "신재생에너지 & 친환경",
-    marketCap: "15조원",
-    sector: "전력",
-    investmentPoints: ["국내 전력 공급 독점", "신재생에너지 투자 확대", "스마트 그리드 구축", "해외 발전 사업 진출"],
-    upwardMomentum2025: ["전력 요금 정상화", "신재생에너지 발전 확대", "ESS 사업 본격화", "해외 사업 수익 기여"],
-    downwardRisks2025: ["전력 요금 규제 지속", "연료비 상승 부담", "탄소중립 투자 비용", "정치적 리스크"],
-    rating: "보유",
-    targetPrice: "25,000원",
-    currentPrice: "22,000원",
-  },
-  {
-    name: "OCI",
-    code: "010060",
-    theme: "신재생에너지 & 친환경",
-    marketCap: "8조원",
-    sector: "태양광",
-    investmentPoints: [
-      "폴리실리콘 글로벌 톱티어",
-      "태양광 소재 수직계열화",
-      "말레이시아 생산 기지",
-      "친환경 수소 사업 진출",
-    ],
-    upwardMomentum2025: [
-      "태양광 시장 성장 가속화",
-      "폴리실리콘 공급 부족",
-      "친환경 수소 사업 확대",
-      "해외 시장 점유율 확대",
-    ],
-    downwardRisks2025: ["중국 업체와의 가격 경쟁", "폴리실리콘 가격 변동성", "환경 규제 강화", "에너지 비용 상승"],
-    rating: "매수",
-    targetPrice: "150,000원",
-    currentPrice: "125,000원",
-  },
-  {
-    name: "신성이엔지",
-    code: "011930",
-    theme: "신재생에너지 & 친환경",
-    marketCap: "3조원",
-    sector: "태양광",
-    investmentPoints: ["태양광 모듈 전문 제조", "고효율 모듈 기술 보유", "국내외 발전 사업 운영", "ESS 사업 확장"],
-    upwardMomentum2025: ["태양광 발전 시장 확대", "고효율 모듈 수요 증가", "ESS 연계 사업 성장", "해외 프로젝트 수주"],
-    downwardRisks2025: ["모듈 가격 하락 압박", "중국 업체 경쟁", "정책 지원 축소", "원자재 가격 상승"],
-    rating: "보유",
-    targetPrice: "18,000원",
-    currentPrice: "15,500원",
-  },
-  {
-    name: "두산에너빌리티",
-    code: "034020",
-    theme: "신재생에너지 & 친환경",
-    marketCap: "20조원",
-    sector: "발전설비",
-    investmentPoints: [
-      "가스터빈 글로벌 선도 기업",
-      "풍력 발전 사업 확대",
-      "수소 터빈 기술 개발",
-      "해외 발전 프로젝트 수주",
-    ],
-    upwardMomentum2025: ["친환경 가스터빈 수요 증가", "해상풍력 시장 본격화", "수소 터빈 상용화", "해외 수주 확대"],
-    downwardRisks2025: ["신재생에너지 전환 가속화", "가스터빈 수요 감소", "기술 투자 비용 증가", "환율 변동 리스크"],
-    rating: "보유",
-    targetPrice: "25,000원",
-    currentPrice: "22,000원",
-  },
-  {
-    name: "CS윈드",
-    code: "112610",
-    theme: "신재생에너지 & 친환경",
-    marketCap: "5조원",
-    sector: "풍력",
-    investmentPoints: [
-      "풍력 타워 글로벌 1위",
-      "해상풍력 타워 전문성",
-      "유럽 및 아시아 생산 기지",
-      "대형 풍력 터빈 대응",
-    ],
-    upwardMomentum2025: [
-      "해상풍력 시장 급성장",
-      "대형 터빈 타워 수요 증가",
-      "유럽 시장 점유율 확대",
-      "아시아 해상풍력 확산",
-    ],
-    downwardRisks2025: ["풍력 타워 가격 경쟁", "원자재 가격 상승", "물류비 증가", "환율 변동 영향"],
-    rating: "매수",
-    targetPrice: "85,000원",
-    currentPrice: "72,000원",
-  },
-  {
-    name: "유니슨",
-    code: "018700",
-    theme: "신재생에너지 & 친환경",
-    marketCap: "2조원",
-    sector: "풍력",
-    investmentPoints: ["풍력 발전기 전문 제조", "해상풍력 터빈 개발", "국내 풍력 시장 선도", "O&M 서비스 사업"],
-    upwardMomentum2025: [
-      "국내 해상풍력 프로젝트 확대",
-      "대용량 터빈 기술 상용화",
-      "해외 시장 진출",
-      "풍력 O&M 시장 성장",
-    ],
-    downwardRisks2025: ["해외 터빈 업체 경쟁", "기술 개발 비용 부담", "프로젝트 지연 리스크", "정책 변화 영향"],
-    rating: "보유",
-    targetPrice: "45,000원",
-    currentPrice: "38,000원",
-  },
-  {
-    name: "삼강엠앤티",
-    code: "100090",
-    theme: "신재생에너지 & 친환경",
-    marketCap: "1조원",
-    sector: "환경",
-    investmentPoints: ["폐기물 처리 및 재활용", "바이오가스 발전 사업", "친환경 에너지 생산", "순환경제 비즈니스 모델"],
-    upwardMomentum2025: ["폐기물 에너지화 확대", "바이오가스 발전 성장", "재활용 시장 확대", "ESG 경영 확산"],
-    downwardRisks2025: ["폐기물 처리 규제 강화", "경쟁사 진입 확대", "처리 비용 상승", "기술 투자 부담"],
-    rating: "보유",
-    targetPrice: "28,000원",
-    currentPrice: "24,000원",
-  },
-  {
-    name: "코오롱인더",
-    code: "120110",
-    theme: "신재생에너지 & 친환경",
-    marketCap: "3조원",
-    sector: "소재",
-    investmentPoints: ["친환경 소재 개발", "태양광 백시트 소재", "수처리 멤브레인", "바이오 기반 소재"],
-    upwardMomentum2025: ["친환경 소재 수요 급증", "태양광 백시트 시장 성장", "수처리 시장 확대", "바이오 소재 상용화"],
-    downwardRisks2025: ["소재 시장 경쟁 심화", "원자재 가격 상승", "기술 개발 지연", "환경 규제 변화"],
-    rating: "보유",
-    targetPrice: "65,000원",
-    currentPrice: "58,000원",
-  },
-  {
-    name: "효성중공업",
-    code: "267270",
-    theme: "신재생에너지 & 친환경",
-    marketCap: "4조원",
-    sector: "전력기기",
-    investmentPoints: ["전력 변압기 글로벌 선도", "신재생에너지 연계 설비", "스마트 그리드 솔루션", "수소 충전 인프라"],
-    upwardMomentum2025: [
-      "신재생에너지 연계 수요 증가",
-      "스마트 그리드 구축 확산",
-      "수소 인프라 시장 성장",
-      "해외 프로젝트 수주",
-    ],
-    downwardRisks2025: ["전력기기 시장 경쟁", "원자재 가격 상승", "프로젝트 지연 리스크", "환율 변동 영향"],
-    rating: "보유",
-    targetPrice: "85,000원",
-    currentPrice: "75,000원",
-  },
-  {
-    name: "LS전선",
-    code: "011070",
-    theme: "신재생에너지 & 친환경",
-    marketCap: "6조원",
-    sector: "전선",
-    investmentPoints: ["해저케이블 글로벌 톱티어", "해상풍력 연계 케이블", "초고압 송전 케이블", "친환경 케이블 소재"],
-    upwardMomentum2025: [
-      "해상풍력 케이블 수요 폭증",
-      "전력망 인프라 투자 확대",
-      "해저케이블 시장 성장",
-      "친환경 케이블 전환",
-    ],
-    downwardRisks2025: ["케이블 시장 경쟁 심화", "구리 가격 변동성", "프로젝트 지연 리스크", "환율 변동 영향"],
-    rating: "매수",
-    targetPrice: "120,000원",
-    currentPrice: "105,000원",
-  },
-  {
-    name: "SK가스",
-    code: "018670",
-    theme: "신재생에너지 & 친환경",
-    marketCap: "2조원",
-    sector: "가스",
-    investmentPoints: ["LPG 유통 시장 선도", "친환경 가스 사업 전환", "수소 사업 진출", "분산전원 사업 확대"],
-    upwardMomentum2025: ["친환경 가스 수요 증가", "수소 사업 본격화", "분산전원 시장 성장", "ESG 경영 강화"],
-    downwardRisks2025: ["전기화 확산으로 가스 수요 감소", "신재생에너지 경쟁", "탄소세 도입 리스크", "정책 변화 영향"],
-    rating: "보유",
-    targetPrice: "180,000원",
-    currentPrice: "165,000원",
-  },
-  {
-    name: "GS",
-    code: "078930",
-    theme: "신재생에너지 & 친환경",
-    marketCap: "3조원",
-    sector: "에너지",
-    investmentPoints: ["에너지 사업 다각화", "신재생에너지 발전 사업", "수소 생태계 구축", "친환경 연료 개발"],
-    upwardMomentum2025: [
-      "신재생에너지 포트폴리오 확대",
-      "수소 사업 본격 추진",
-      "친환경 연료 시장 성장",
-      "ESG 투자 확대",
-    ],
-    downwardRisks2025: ["에너지 전환 비용 부담", "기존 사업 수익성 악화", "신사업 투자 리스크", "정책 변화 영향"],
-    rating: "보유",
-    targetPrice: "45,000원",
-    currentPrice: "38,000원",
-  },
-  {
-    name: "한국가스공사",
-    code: "036460",
-    theme: "신재생에너지 & 친환경",
-    marketCap: "8조원",
-    sector: "가스",
-    investmentPoints: ["천연가스 공급 독점", "LNG 터미널 운영", "수소 사업 진출", "친환경 가스 개발"],
-    upwardMomentum2025: ["천연가스 브릿지 역할", "수소 인프라 구축 선도", "LNG 벙커링 사업 확대", "해외 가스전 개발"],
-    downwardRisks2025: ["탄소중립 정책 강화", "신재생에너지 대체", "가스 가격 변동성", "정치적 리스크"],
-    rating: "보유",
-    targetPrice: "35,000원",
-    currentPrice: "31,000원",
-  },
-  {
-    name: "대림산업",
-    code: "000210",
-    theme: "신재생에너지 & 친환경",
-    marketCap: "4조원",
-    sector: "건설",
-    investmentPoints: ["신재생에너지 발전소 건설", "해상풍력 시공 전문성", "친환경 건축 기술", "ESG 건설 사업 확대"],
-    upwardMomentum2025: [
-      "해상풍력 건설 수주 확대",
-      "태양광 발전소 시공 증가",
-      "친환경 건축 시장 성장",
-      "해외 프로젝트 진출",
-    ],
-    downwardRisks2025: ["건설 시장 경쟁 심화", "원자재 가격 상승", "프로젝트 지연 리스크", "환율 변동 영향"],
-    rating: "보유",
-    targetPrice: "95,000원",
-    currentPrice: "85,000원",
-  },
-  // 6. 방산 & 항공우주 테마 (15개) - companyData 배열에 추가
-  {
-    name: "한화시스템",
-    code: "272210",
-    theme: "방산 & 항공우주",
-    marketCap: "8조원",
-    sector: "방산",
-    investmentPoints: [
-      "국내 방산 전자 1위 기업",
-      "레이더 및 전자전 시스템 선도",
-      "우주항공 사업 확장",
-      "AI 기반 무기체계 개발",
-    ],
-    upwardMomentum2025: ["글로벌 방산 수요 증가", "KF-21 양산 본격화", "우주발사체 사업 확대", "AI 무기체계 수출 확대"],
-    downwardRisks2025: ["방산 수출 규제 강화", "기술 유출 리스크", "개발 비용 증가", "정치적 리스크"],
-    rating: "매수",
-    targetPrice: "45,000원",
-    currentPrice: "38,000원",
-  },
-  {
-    name: "LIG넥스원",
-    code: "079550",
-    theme: "방산 & 항공우주",
-    marketCap: "5조원",
-    sector: "방산",
-    investmentPoints: ["미사일 및 유도무기 전문", "해외 수출 확대", "차세대 무기체계 개발", "민수 사업 다각화"],
-    upwardMomentum2025: ["천궁-II 해외 수출", "차세대 미사일 개발", "우주 감시 레이더 수주", "민수 매출 확대"],
-    downwardRisks2025: ["수출 승인 지연", "기술 경쟁 심화", "개발 리스크", "정책 변화"],
-    rating: "매수",
-    targetPrice: "85,000원",
-    currentPrice: "72,000원",
-  },
-  {
-    name: "한국항공우주",
-    code: "047810",
-    theme: "방산 & 항공우주",
-    marketCap: "3조원",
-    sector: "항공우주",
-    investmentPoints: ["KF-21 전투기 개발 주도", "헬기 및 항공기 제조", "우주발사체 개발", "MRO 사업 확장"],
-    upwardMomentum2025: ["KF-21 양산 및 수출", "차세대 헬기 개발", "누리호 상용화", "해외 MRO 확대"],
-    downwardRisks2025: ["개발 지연 리스크", "기술 이전 이슈", "자금 조달 부담", "경쟁사 추격"],
-    rating: "매수",
-    targetPrice: "65,000원",
-    currentPrice: "55,000원",
-  },
-  {
-    name: "풍산",
-    code: "103140",
-    theme: "방산 & 항공우주",
-    marketCap: "2조원",
-    sector: "방산",
-    investmentPoints: ["탄약 및 화약 전문", "구리 소재 사업", "방산 수출 확대", "친환경 탄약 개발"],
-    upwardMomentum2025: ["방산 수출 급증", "구리 소재 수요 증가", "친환경 탄약 시장 선점", "해외 생산 기지 확대"],
-    downwardRisks2025: ["구리 가격 변동성", "환경 규제 강화", "수출 규제 리스크", "원자재 가격 상승"],
-    rating: "보유",
-    targetPrice: "45,000원",
-    currentPrice: "38,000원",
-  },
-  {
-    name: "현대로템",
-    code: "064350",
-    theme: "방산 & 항공우주",
-    marketCap: "1조원",
-    sector: "방산",
-    investmentPoints: ["전차 및 장갑차 제조", "철도차량 사업", "방산 수출 확대", "무인 시스템 개발"],
-    upwardMomentum2025: ["K2 전차 해외 수출", "도시철도 수주 확대", "무인 전투체계 개발", "해외 시장 진출"],
-    downwardRisks2025: ["방산 수출 경쟁", "철도 시장 포화", "개발 비용 증가", "기술 유출 리스크"],
-    rating: "보유",
-    targetPrice: "35,000원",
-    currentPrice: "31,000원",
-  },
-  {
-    name: "쎄트렉아이",
-    code: "099320",
-    theme: "방산 & 항공우주",
-    marketCap: "4000억원",
-    sector: "항공우주",
-    investmentPoints: ["인공위성 개발 및 제조", "위성 영상 서비스", "지구 관측 솔루션", "우주 기술 국산화"],
-    upwardMomentum2025: ["위성 영상 수요 증가", "정부 우주 개발 투자 확대", "해외 위성 수출", "신규 서비스 출시"],
-    downwardRisks2025: ["기술 경쟁 심화", "개발 비용 증가", "수주 변동성", "정책 변화"],
-    rating: "보유",
-    targetPrice: "55,000원",
-    currentPrice: "48,000원",
-  },
-  {
-    name: "AP위성",
-    code: "211270",
-    theme: "방산 & 항공우주",
-    marketCap: "3000억원",
-    sector: "통신장비",
-    investmentPoints: ["위성 통신 시스템 개발", "해상 통신 솔루션", "위성 탑재체 기술", "글로벌 파트너십"],
-    upwardMomentum2025: ["해상 통신 시장 성장", "위성 통신망 구축 확대", "해외 시장 진출", "신규 장비 개발"],
-    downwardRisks2025: ["통신 기술 변화", "경쟁 심화", "수주 리스크", "환율 변동"],
-    rating: "보유",
-    targetPrice: "25,000원",
-    currentPrice: "22,000원",
-  },
-  {
-    name: "아이쓰리시스템",
-    code: "234240",
-    theme: "방산 & 항공우주",
-    marketCap: "2000억원",
-    sector: "센서",
-    investmentPoints: ["적외선 센서 기술", "열화상 카메라", "방산 및 우주 분야 적용", "기술 경쟁력"],
-    upwardMomentum2025: ["열화상 카메라 수요 증가", "방산 시장 확대", "우주 탐사 프로젝트 참여", "신규 센서 개발"],
-    downwardRisks2025: ["기술 변화 속도", "경쟁 심화", "수출 규제", "원자재 가격 상승"],
-    rating: "보유",
-    targetPrice: "35,000원",
-    currentPrice: "31,000원",
-  },
-  {
-    name: "제노코",
-    code: "361390",
-    theme: "방산 & 항공우주",
-    marketCap: "1500억원",
-    sector: "통신장비",
-    investmentPoints: ["위성 통신 부품", "항법 시스템", "방산 전자 장비", "기술 국산화"],
-    upwardMomentum2025: ["위성 통신 시장 성장", "항법 장비 수요 증가", "방산 수출 확대", "신규 부품 개발"],
-    downwardRisks2025: ["기술 경쟁 심화", "수주 리스크", "환율 변동", "정책 변화"],
-    rating: "보유",
-    targetPrice: "28,000원",
-    currentPrice: "24,000원",
-  },
-  {
-    name: "LIG에이디피",
-    code: "079660",
-    theme: "방산 & 항공우주",
-    marketCap: "1000억원",
-    sector: "IT서비스",
-    investmentPoints: ["국방 IT 솔루션", "정보 보안 서비스", "군 통신 시스템", "기술 전문성"],
-    upwardMomentum2025: ["국방 IT 투자 확대", "사이버 보안 중요성 증가", "군 통신망 고도화", "신규 서비스 출시"],
-    downwardRisks2025: ["IT 서비스 경쟁 심화", "보안 위협 증가", "수주 리스크", "정책 변화"],
-    rating: "보유",
-    targetPrice: "18,000원",
-    currentPrice: "15,500원",
-  },
-  {
-    name: "한컴위드",
-    code: "054920",
-    theme: "방산 & 항공우주",
-    marketCap: "800억원",
-    sector: "보안",
-    investmentPoints: ["드론 보안 솔루션", "사이버 방어 시스템", "국방 보안 기술", "기술 경쟁력"],
-    upwardMomentum2025: ["드론 시장 성장", "사이버 공격 증가", "국방 보안 투자 확대", "신규 솔루션 출시"],
-    downwardRisks2025: ["보안 기술 변화", "경쟁 심화", "수주 리스크", "정책 변화"],
-    rating: "보유",
-    targetPrice: "15,000원",
-    currentPrice: "13,500원",
-  },
-  {
-    name: "휴니드테크놀러지스",
-    code: "005870",
-    theme: "방산 & 항공우주",
-    marketCap: "700억원",
-    sector: "통신장비",
-    investmentPoints: ["전술 통신 시스템", "무선 통신 장비", "군용 통신 솔루션", "기술 전문성"],
-    upwardMomentum2025: ["군 통신망 고도화", "무선 통신 수요 증가", "방산 수출 확대", "신규 장비 개발"],
-    downwardRisks2025: ["통신 기술 변화", "경쟁 심화", "수주 리스크", "정책 변화"],
-    rating: "보유",
-    targetPrice: "12,000원",
-    currentPrice: "10,500원",
-  },
-  {
-    name: "퍼스텍",
-    code: "010820",
-    theme: "방산 & 항공우주",
-    marketCap: "600억원",
-    sector: "자동화",
-    investmentPoints: ["무인 로봇 시스템", "자동화 솔루션", "방산 및 산업 분야 적용", "기술 경쟁력"],
-    upwardMomentum2025: ["무인 시스템 수요 증가", "자동화 시장 확대", "방산 로봇 개발", "신규 솔루션 출시"],
-    downwardRisks2025: ["자동화 기술 변화", "경쟁 심화", "수주 리스크", "정책 변화"],
-    rating: "보유",
-    targetPrice: "10,000원",
-    currentPrice: "8,500원",
-  },
-  {
-    name: "STX엔진",
-    code: "077970",
-    theme: "방산 & 항공우주",
-    marketCap: "500억원",
-    sector: "엔진",
-    investmentPoints: ["선박 엔진 제조", "발전기 엔진", "방산 엔진 공급", "기술 전문성"],
-    upwardMomentum2025: ["선박 엔진 수요 증가", "발전 시장 성장", "방산 엔진 수출", "신규 엔진 개발"],
-    downwardRisks2025: ["엔진 기술 변화", "경쟁 심화", "수주 리스크", "환율 변동"],
-    rating: "보유",
-    targetPrice: "8,000원",
-    currentPrice: "7,000원",
-  },
-  {
-    name: " MDS테크",
-    code: "086960",
-    theme: "방산 & 항공우주",
-    marketCap: "400억원",
-    sector: "소프트웨어",
-    investmentPoints: ["임베디드 소프트웨어", "항공우주 소프트웨어", "국방 소프트웨어", "기술 전문성"],
-    upwardMomentum2025: ["임베디드 시스템 수요 증가", "항공우주 개발 확대", "국방 IT 투자 증가", "신규 솔루션 출시"],
-    downwardRisks2025: ["소프트웨어 기술 변화", "경쟁 심화", "수주 리스크", "정책 변화"],
-    rating: "보유",
-    targetPrice: "7,000원",
-    currentPrice: "6,000원",
-  },
-  // 7. 엔터 & 미디어 테마 (15개)
-  {
-    name: "하이브",
-    code: "352820",
-    theme: "엔터 & 미디어",
-    marketCap: "15조원",
-    sector: "엔터테인먼트",
-    investmentPoints: ["BTS 등 글로벌 아티스트 보유", "다중 레이블 시스템", "팬 플랫폼 위버스 운영", "IP 사업 확장"],
-    upwardMomentum2025: ["글로벌 K-POP 시장 확대", "위버스 플랫폼 성장", "신규 아티스트 데뷔", "IP 사업 다각화"],
-    downwardRisks2025: ["아티스트 의존도 리스크", "글로벌 경기 둔화", "경쟁사 추격", "팬덤 변화"],
-    rating: "매수",
-    targetPrice: "280,000원",
-    currentPrice: "245,000원",
-  },
-  {
-    name: "SM엔터테인먼트",
-    code: "041510",
-    theme: "엔터 & 미디어",
-    marketCap: "3조원",
-    sector: "엔터테인먼트",
-    investmentPoints: ["K-POP 선도 기업", "글로벌 아티스트 육성", "메타버스 콘서트", "IP 사업 확장"],
-    upwardMomentum2025: ["에스파, NCT 등 글로벌 성장", "메타버스 콘텐츠 확대", "중국 시장 회복", "IP 라이센싱 확대"],
-    downwardRisks2025: ["아티스트 계약 만료", "중국 시장 불확실성", "경쟁 심화", "제작비 상승"],
-    rating: "보유",
-    targetPrice: "95,000원",
-    currentPrice: "85,000원",
-  },
-  {
-    name: "YG엔터테인먼트",
-    code: "122870",
-    theme: "엔터 & 미디어",
-    marketCap: "2조원",
-    sector: "엔터테인먼트",
-    investmentPoints: ["블랙핑크 등 글로벌 아티스트", "독창적 음악 스타일", "패션 사업 연계", "해외 투어 강점"],
-    upwardMomentum2025: ["블랙핑크 활동 재개", "신규 걸그룹 데뷔", "해외 투어 확대", "패션 브랜드 성장"],
-    downwardRisks2025: ["아티스트 공백기", "경쟁사 추격", "제작비 증가", "팬덤 이탈"],
-    rating: "보유",
-    targetPrice: "65,000원",
-    currentPrice: "58,000원",
-  },
-  {
-    name: "JYP엔터테인먼트",
-    code: "035900",
-    theme: "엔터 & 미디어",
-    marketCap: "1조원",
-    sector: "엔터테인먼트",
-    investmentPoints: ["트와이스, 스트레이키즈 보유", "체계적 연습생 시스템", "일본 시장 강세", "오디션 프로그램"],
-    upwardMomentum2025: ["스트레이키즈 글로벌 성장", "신규 아티스트 데뷔", "일본 시장 확대", "오디션 콘텐츠"],
-    downwardRisks2025: ["아티스트 의존도", "일본 시장 변화", "경쟁 심화", "제작비 상승"],
-    rating: "보유",
-    targetPrice: "85,000원",
-    currentPrice: "75,000원",
-  },
-  {
-    name: "CJ ENM",
-    code: "035760",
-    theme: "엔터 & 미디어",
-    marketCap: "8조원",
-    sector: "미디어",
-    investmentPoints: ["종합 엔터테인먼트 기업", "영화 제작 및 배급", "방송 콘텐츠", "글로벌 OTT 진출"],
-    upwardMomentum2025: ["K-콘텐츠 글로벌 확산", "OTT 플랫폼 성장", "영화 산업 회복", "IP 사업 확대"],
-    downwardRisks2025: ["콘텐츠 제작비 상승", "OTT 경쟁 심화", "극장 시장 변화", "환율 변동"],
-    rating: "매수",
-    targetPrice: "120,000원",
-    currentPrice: "105,000원",
-  },
-  {
-    name: "넷플릭스코리아",
-    code: "NFLX",
-    theme: "엔터 & 미디어",
-    marketCap: "5조원",
-    sector: "OTT",
-    investmentPoints: ["글로벌 OTT 플랫폼", "K-콘텐츠 투자 확대", "오리지널 콘텐츠", "구독자 기반 안정"],
-    upwardMomentum2025: ["K-드라마 글로벌 인기", "오리지널 콘텐츠 확대", "아시아 시장 성장", "광고 모델 도입"],
-    downwardRisks2025: ["경쟁 플랫폼 증가", "콘텐츠 비용 상승", "구독자 증가 둔화", "규제 강화"],
-    rating: "매수",
-    targetPrice: "650,000원",
-    currentPrice: "580,000원",
-  },
-  {
-    name: "스튜디오드래곤",
-    code: "253450",
-    theme: "엔터 & 미디어",
-    marketCap: "2조원",
-    sector: "콘텐츠",
-    investmentPoints: ["드라마 제작 전문", "글로벌 OTT 공급", "IP 개발 역량", "제작 인프라"],
-    upwardMomentum2025: ["K-드라마 수요 급증", "글로벌 OTT 공급 확대", "IP 사업 성장", "제작 역량 강화"],
-    downwardRisks2025: ["제작비 상승", "경쟁사 증가", "흥행 불확실성", "인력 확보 어려움"],
-    rating: "매수",
-    targetPrice: "85,000원",
-    currentPrice: "72,000원",
-  },
-  {
-    name: "롯데컬처웍스",
-    code: "067160",
-    theme: "엔터 & 미디어",
-    marketCap: "1조원",
-    sector: "영화",
-    investmentPoints: ["영화 배급 및 상영", "멀티플렉스 운영", "콘텐츠 투자", "엔터테인먼트 복합"],
-    upwardMomentum2025: ["영화 산업 회복", "프리미엄 상영관 확대", "콘텐츠 투자 수익", "복합 엔터테인먼트"],
-    downwardRisks2025: ["OTT 플랫폼 경쟁", "관객 수 감소", "임대료 상승", "콘텐츠 투자 리스크"],
-    rating: "보유",
-    targetPrice: "25,000원",
-    currentPrice: "22,000원",
-  },
-  {
-    name: "메가스터디교육",
-    code: "215200",
-    theme: "엔터 & 미디어",
-    marketCap: "1조원",
-    sector: "교육",
-    investmentPoints: ["온라인 교육 플랫폼", "스타 강사 시스템", "교육 콘텐츠", "에듀테크 기술"],
-    upwardMomentum2025: ["온라인 교육 확산", "AI 맞춤형 학습", "해외 진출", "평생교육 시장"],
-    downwardRisks2025: ["학령인구 감소", "경쟁 플랫폼 증가", "규제 변화", "강사 의존도"],
-    rating: "보유",
-    targetPrice: "65,000원",
-    currentPrice: "58,000원",
-  },
-  {
-    name: "위메이드",
-    code: "112040",
-    theme: "엔터 & 미디어",
-    marketCap: "3조원",
-    sector: "게임",
-    investmentPoints: ["MMORPG 전문", "블록체인 게임", "글로벌 퍼블리싱", "IP 활용"],
-    upwardMomentum2025: ["블록체인 게임 확산", "미르 IP 활용", "글로벌 시장 확대", "신작 게임 출시"],
-    downwardRisks2025: ["게임 규제 강화", "블록체인 정책 변화", "경쟁 심화", "개발 리스크"],
-    rating: "보유",
-    targetPrice: "85,000원",
-    currentPrice: "75,000원",
-  },
-  {
-    name: "컴투스",
-    code: "078340",
-    theme: "엔터 & 미디어",
-    marketCap: "2조원",
-    sector: "게임",
-    investmentPoints: ["모바일 게임 전문", "서머너즈 워 IP", "글로벌 서비스", "e스포츠"],
-    upwardMomentum2025: ["모바일 게임 시장 성장", "IP 확장", "e스포츠 확산", "신규 게임 출시"],
-    downwardRisks2025: ["모바일 게임 경쟁", "IP 의존도", "개발 비용 증가", "규제 리스크"],
-    rating: "보유",
-    targetPrice: "95,000원",
-    currentPrice: "85,000원",
-  },
-  {
-    name: "펄어비스",
-    code: "263750",
-    theme: "엔터 & 미디어",
-    marketCap: "1조원",
-    sector: "게임",
-    investmentPoints: ["검은사막 IP 보유", "글로벌 MMORPG", "콘솔 게임 진출", "차세대 게임 개발"],
-    upwardMomentum2025: ["검은사막 IP 확장", "콘솔 시장 성장", "신작 게임 출시", "글로벌 확산"],
-    downwardRisks2025: ["MMORPG 시장 변화", "개발 지연", "경쟁 심화", "플랫폼 의존도"],
-    rating: "보유",
-    targetPrice: "65,000원",
-    currentPrice: "58,000원",
-  },
-  {
-    name: "카카오게임즈",
-    code: "293490",
-    theme: "엔터 & 미디어",
-    marketCap: "2조원",
-    sector: "게임",
-    investmentPoints: ["모바일 게임 퍼블리싱", "카카오 플랫폼 연계", "글로벌 진출", "IP 게임"],
-    upwardMomentum2025: ["모바일 게임 퍼블리싱", "카카오 시너지", "해외 시장 확대", "IP 게임 확산"],
-    downwardRisks2025: ["퍼블리싱 경쟁", "플랫폼 의존도", "개발사 관계", "시장 변화"],
-    rating: "보유",
-    targetPrice: "45,000원",
-    currentPrice: "38,000원",
-  },
-  {
-    name: "드래곤플라이",
-    code: "033290",
-    theme: "엔터 & 미디어",
-    marketCap: "5000억원",
-    sector: "게임",
-    investmentPoints: ["모바일 게임 개발", "캐주얼 게임", "글로벌 서비스", "라이브 서비스"],
-    upwardMomentum2025: ["캐주얼 게임 성장", "글로벌 확산", "라이브 서비스", "신규 장르 진출"],
-    downwardRisks2025: ["캐주얼 게임 경쟁", "마케팅 비용", "개발 리스크", "플랫폼 정책"],
-    rating: "보유",
-    targetPrice: "28,000원",
-    currentPrice: "24,000원",
-  },
-  {
-    name: "선데이토즈",
-    code: "123420",
-    theme: "엔터 & 미디어",
-    marketCap: "8000억원",
-    sector: "게임",
-    investmentPoints: ["퍼즐 게임 전문", "애니팡 IP", "글로벌 서비스", "캐주얼 게임"],
-    upwardMomentum2025: ["퍼즐 게임 시장 성장", "IP 활용 확대", "글로벌 진출", "신규 게임"],
-    downwardRisks2025: ["퍼즐 게임 포화", "IP 의존도", "마케팅 경쟁", "개발 비용"],
-    rating: "보유",
-    targetPrice: "35,000원",
-    currentPrice: "31,000원",
-  },
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-  // 8. 금융 & 핀테크 테마 (15개)
-  {
-    name: "KB금융",
-    code: "105560",
-    theme: "금융 & 핀테크",
-    marketCap: "25조원",
-    sector: "은행",
-    investmentPoints: ["국내 은행업 선도", "디지털 금융 전환", "해외 사업 확장", "안정적인 배당"],
-    upwardMomentum2025: ["금리 상승 수혜", "디지털 뱅킹 확산", "해외 수익 기여 확대", "자산 건전성 개선"],
-    downwardRisks2025: ["경기 둔화 우려", "대출 연체율 상승", "핀테크 경쟁", "규제 강화"],
-    rating: "보유",
-    targetPrice: "75,000원",
-    currentPrice: "68,000원",
-  },
-  {
-    name: "신한지주",
-    code: "055550",
-    theme: "금융 & 핀테크",
-    marketCap: "20조원",
-    sector: "은행",
-    investmentPoints: ["종합 금융 그룹", "디지털 혁신 선도", "해외 진출 확대", "핀테크 투자"],
-    upwardMomentum2025: ["디지털 금융 확산", "해외 사업 성장", "핀테크 시너지", "자산 관리 확대"],
-    downwardRisks2025: ["금리 변동 리스크", "경기 둔화", "핀테크 경쟁", "규제 환경"],
-    rating: "보유",
-    targetPrice: "55,000원",
-    currentPrice: "48,000원",
-  },
-  {
-    name: "하나금융지주",
-    code: "086790",
-    theme: "금융 & 핀테크",
-    marketCap: "18조원",
-    sector: "은행",
-    investmentPoints: ["중소기업 금융 강점", "디지털 전환", "해외 네트워크", "종합 금융 서비스"],
-    upwardMomentum2025: ["중소기업 금융 회복", "디지털 서비스 확대", "해외 진출", "자산 관리 성장"],
-    downwardRisks2025: ["중소기업 리스크", "금리 변동", "경쟁 심화", "규제 변화"],
-    rating: "보유",
-    targetPrice: "65,000원",
-    currentPrice: "58,000원",
-  },
-  {
-    name: "우리금융지주",
-    code: "316140",
-    theme: "금융 & 핀테크",
-    marketCap: "15조원",
-    sector: "은행",
-    investmentPoints: ["은행업 전문성", "디지털 혁신", "해외 사업", "리테일 금융"],
-    upwardMomentum2025: ["디지털 뱅킹 성장", "해외 수익 확대", "리테일 강화", "자산 건전성"],
-    downwardRisks2025: ["금리 리스크", "경기 민감도", "핀테크 위협", "규제 부담"],
-    rating: "보유",
-    targetPrice: "18,000원",
-    currentPrice: "15,500원",
-  },
-  {
-    name: "카카오뱅크",
-    code: "323410",
-    theme: "금융 & 핀테크",
-    marketCap: "12조원",
-    sector: "인터넷은행",
-    investmentPoints: ["디지털 전용 은행", "모바일 뱅킹 선도", "카카오 생태계", "핀테크 혁신"],
-    upwardMomentum2025: ["디지털 뱅킹 확산", "대출 사업 성장", "카카오 시너지", "해외 진출"],
-    downwardRisks2025: ["금리 변동 민감도", "경쟁 은행 추격", "규제 강화", "수익성 압박"],
-    rating: "매수",
-    targetPrice: "85,000원",
-    currentPrice: "72,000원",
-  },
-  {
-    name: "토스뱅크",
-    code: "088350",
-    theme: "금융 & 핀테크",
-    marketCap: "8조원",
-    sector: "인터넷은행",
-    investmentPoints: ["모바일 금융 플랫폼", "간편 송금 서비스", "금융 슈퍼앱", "데이터 기반 서비스"],
-    upwardMomentum2025: ["모바일 금융 확산", "플랫폼 사업 확대", "데이터 활용", "해외 진출"],
-    downwardRisks2025: ["수익성 개선 과제", "경쟁 심화", "규제 리스크", "자금 조달"],
-    rating: "보유",
-    targetPrice: "65,000원",
-    currentPrice: "58,000원",
-  },
-  {
-    name: "삼성생명",
-    code: "032830",
-    theme: "금융 & 핀테크",
-    marketCap: "12조원",
-    sector: "보험",
-    investmentPoints: ["생명보험 1위", "자산 관리", "디지털 보험", "헬스케어 연계"],
-    upwardMomentum2025: ["고령화 수혜", "자산 관리 확대", "디지털 보험", "헬스케어 보험"],
-    downwardRisks2025: ["저금리 환경", "보험 규제", "경쟁 심화", "인구 감소"],
-    rating: "보유",
-    targetPrice: "95,000원",
-    currentPrice: "85,000원",
-  },
-  {
-    name: "한화생명",
-    code: "088350",
-    theme: "금융 & 핀테크",
-    marketCap: "3조원",
-    sector: "보험",
-    investmentPoints: ["생명보험 사업", "자산 운용", "디지털 전환", "연금 사업"],
-    upwardMomentum2025: ["연금 시장 성장", "자산 운용 수익", "디지털 보험", "해외 진출"],
-    downwardRisks2025: ["금리 변동", "보험 시장 포화", "규제 강화", "경쟁 심화"],
-    rating: "보유",
-    targetPrice: "4,500원",
-    currentPrice: "3,800원",
-  },
-  {
-    name: "DB손해보험",
-    code: "005830",
-    theme: "금융 & 핀테크",
-    marketCap: "2조원",
-    sector: "보험",
-    investmentPoints: ["손해보험 전문", "자동차보험 강점", "디지털 보험", "리스크 관리"],
-    upwardMomentum2025: ["자동차보험 회복", "디지털 보험 확산", "신종 보험 개발", "해외 진출"],
-    downwardRisks2025: ["자동차 시장 변화", "보험료 경쟁", "규제 변화", "자연재해 리스크"],
-    rating: "보유",
-    targetPrice: "85,000원",
-    currentPrice: "75,000원",
-  },
-  {
-    name: "미래에셋증권",
-    code: "006800",
-    theme: "금융 & 핀테크",
-    marketCap: "8조원",
-    sector: "증권",
-    investmentPoints: ["종합 금융 투자", "자산 관리", "해외 사업", "디지털 플랫폼"],
-    upwardMomentum2025: ["자산 관리 확대", "해외 수익 성장", "디지털 투자", "수수료 수익"],
-    downwardRisks2025: ["시장 변동성", "경쟁 심화", "규제 강화", "수수료 하락"],
-    rating: "보유",
-    targetPrice: "12,000원",
-    currentPrice: "10,500원",
-  },
-  {
-    name: "NH투자증권",
-    code: "005940",
-    theme: "금융 & 핀테크",
-    marketCap: "3조원",
-    sector: "증권",
-    investmentPoints: ["증권 중개 사업", "자산 관리", "투자은행", "디지털 서비스"],
-    upwardMomentum2025: ["자산 관리 성장", "IB 사업 확대", "디지털 투자", "해외 진출"],
-    downwardRisks2025: ["증권 시장 변동", "수수료 경쟁", "규제 리스크", "경기 민감도"],
-    rating: "보유",
-    targetPrice: "15,000원",
-    currentPrice: "13,500원",
-  },
-  {
-    name: "한국투자증권",
-    code: "030200",
-    theme: "금융 & 핀테크",
-    marketCap: "4조원",
-    sector: "증권",
-    investmentPoints: ["증권 업계 선도", "자산 관리", "투자은행", "글로벌 네트워크"],
-    upwardMomentum2025: ["자산 관리 확대", "IB 수익 성장", "해외 사업", "디지털 혁신"],
-    downwardRisks2025: ["시장 리스크", "수수료 하락", "경쟁 심화", "규제 변화"],
-    rating: "보유",
-    targetPrice: "45,000원",
-    currentPrice: "38,000원",
-  },
-  {
-    name: "신용보증기금",
-    code: "023350",
-    theme: "금융 & 핀테크",
-    marketCap: "1조원",
-    sector: "보증",
-    investmentPoints: ["중소기업 신용보증", "정책 금융", "핀테크 지원", "창업 지원"],
-    upwardMomentum2025: ["중소기업 지원 확대", "핀테크 보증", "창업 생태계", "디지털 보증"],
-    downwardRisks2025: ["중소기업 리스크", "보증 손실", "정책 변화", "경기 민감도"],
-    rating: "보유",
-    targetPrice: "25,000원",
-    currentPrice: "22,000원",
-  },
-  {
-    name: "페이게이트",
-    code: "093320",
-    theme: "금융 & 핀테크",
-    marketCap: "5000억원",
-    sector: "핀테크",
-    investmentPoints: ["전자결제 서비스", "PG 사업", "간편결제", "핀테크 솔루션"],
-    upwardMomentum2025: ["전자결제 확산", "간편결제 성장", "해외 진출", "B2B 솔루션"],
-    downwardRisks2025: ["결제 시장 경쟁", "수수료 하락", "규제 변화", "기술 투자"],
-    rating: "보유",
-    targetPrice: "18,000원",
-    currentPrice: "15,500원",
-  },
-  {
-    name: "비바리퍼블리카",
-    code: "TOSS",
-    theme: "금융 & 핀테크",
-    marketCap: "10조원",
-    sector: "핀테크",
-    investmentPoints: ["토스 금융 플랫폼", "간편송금 서비스", "투자 서비스", "보험 중개"],
-    upwardMomentum2025: ["금융 슈퍼앱 확산", "투자 서비스 성장", "보험 사업", "해외 진출"],
-    downwardRisks2025: ["수익성 개선 과제", "규제 리스크", "경쟁 심화", "자금 조달"],
-    rating: "매수",
-    targetPrice: "120,000원",
-    currentPrice: "105,000원",
-  },
-
-  // 9. 조선 & 해운 테마 (15개)
-  {
-    name: "현대중공업",
-    code: "009540",
-    theme: "조선 & 해운",
-    marketCap: "20조원",
-    sector: "조선",
-    investmentPoints: ["세계 1위 조선소", "친환경 선박 기술", "해상풍력 사업", "수소 추진선 개발"],
-    upwardMomentum2025: ["친환경 선박 수주 급증", "해상풍력 설치선 수요", "LNG 운반선 호황", "수소선박 상용화"],
-    downwardRisks2025: ["조선업 사이클 변동", "원자재 가격 상승", "중국 조선소 경쟁", "환율 변동"],
-    rating: "매수",
-    targetPrice: "180,000원",
-    currentPrice: "155,000원",
-  },
-  {
-    name: "삼성중공업",
-    code: "010140",
-    theme: "조선 & 해운",
-    marketCap: "8조원",
-    sector: "조선",
-    investmentPoints: ["LNG선 전문 조선소", "해양플랜트 기술", "친환경 선박", "디지털 조선"],
-    upwardMomentum2025: ["LNG선 수주 확대", "친환경 선박 전환", "해양플랜트 회복", "디지털 기술 도입"],
-    downwardRisks2025: ["조선업 경쟁 심화", "해양플랜트 부진", "원자재 비용", "기술 투자 부담"],
-    rating: "매수",
-    targetPrice: "12,000원",
-    currentPrice: "10,500원",
-  },
-  {
-    name: "대우조선해양",
-    code: "042660",
-    theme: "조선 & 해운",
-    marketCap: "5조원",
-    sector: "조선",
-    investmentPoints: ["LNG선 기술 선도", "친환경 선박", "해양플랜트", "스마트 조선"],
-    upwardMomentum2025: ["LNG선 수주 호황", "친환경 선박 수요", "해양플랜트 회복", "기술 혁신"],
-    downwardRisks2025: ["조선업 사이클", "경쟁사 추격", "원자재 가격", "환율 리스크"],
-    rating: "보유",
-    targetPrice: "35,000원",
-    currentPrice: "31,000원",
-  },
-  {
-    name: "한국조선해양",
-    code: "009540",
-    theme: "조선 & 해운",
-    marketCap: "15조원",
-    sector: "조선",
-    investmentPoints: ["조선 기술 혁신", "친환경 선박", "디지털 조선소", "해상풍력"],
-    upwardMomentum2025: ["친환경 선박 전환", "디지털 조선 확산", "해상풍력 진출", "기술 경쟁력"],
-    downwardRisks2025: ["조선업 변동성", "기술 투자 비용", "경쟁 심화", "환경 규제"],
-    rating: "매수",
-    targetPrice: "150,000원",
-    currentPrice: "128,000원",
-  },
-  {
-    name: "HMM",
-    code: "011200",
-    theme: "조선 & 해운",
-    marketCap: "3조원",
-    sector: "해운",
-    investmentPoints: ["컨테이너 해운 사업", "글로벌 항로 운영", "친환경 선박 도입", "물류 네트워크"],
-    upwardMomentum2025: ["해운 시황 회복", "친환경 선박 전환", "아시아 항로 강화", "물류 통합 서비스"],
-    downwardRisks2025: ["해운 시황 변동", "연료비 상승", "글로벌 경기 둔화", "환율 변동"],
-    rating: "보유",
-    targetPrice: "25,000원",
-    currentPrice: "22,000원",
-  },
-  {
-    name: "팬오션",
-    code: "028670",
-    theme: "조선 & 해운",
-    marketCap: "1조원",
-    sector: "해운",
-    investmentPoints: ["벌크선 전문 해운", "원자재 운송", "글로벌 네트워크", "친환경 선박"],
-    upwardMomentum2025: ["원자재 운송 수요", "벌크선 시황 개선", "친환경 선박 도입", "항로 다변화"],
-    downwardRisks2025: ["벌크선 시황 변동", "원자재 가격", "연료비 상승", "환경 규제"],
-    rating: "보유",
-    targetPrice: "8,500원",
-    currentPrice: "7,200원",
-  },
-  {
-    name: "STX엔진",
-    code: "077970",
-    theme: "조선 & 해운",
-    marketCap: "2조원",
-    sector: "조선기자재",
-    investmentPoints: ["선박용 엔진 제조", "친환경 엔진 기술", "해양플랜트 엔진", "발전용 엔진"],
-    upwardMomentum2025: ["친환경 엔진 수요", "선박 엔진 교체", "해양플랜트 회복", "발전용 엔진"],
-    downwardRisks2025: ["조선업 의존도", "기술 전환 비용", "경쟁사 추격", "환경 규제"],
-    rating: "보유",
-    targetPrice: "15,000원",
-    currentPrice: "13,500원",
-  },
-  {
-    name: "현대미포조선",
-    code: "010620",
-    theme: "조선 & 해운",
-    marketCap: "1조원",
-    sector: "조선",
-    investmentPoints: ["중형 조선소", "컨테이너선 전문", "친환경 선박", "특수선 건조"],
-    upwardMomentum2025: ["컨테이너선 수주 증가", "친환경 선박 전환", "특수선 시장 확대", "기술 혁신"],
-    downwardRisks2025: ["조선업 경쟁", "원자재 가격 상승", "환율 변동", "수주 변동성"],
-    rating: "보유",
-    targetPrice: "95,000원",
-    currentPrice: "85,000원",
-  },
-  {
-    name: "대한조선",
-    code: "008770",
-    theme: "조선 & 해운",
-    marketCap: "5000억원",
-    sector: "조선",
-    investmentPoints: ["중소형 조선소", "특수선 건조", "수리조선", "해양구조물"],
-    upwardMomentum2025: ["특수선 수요 증가", "수리조선 확대", "해양구조물 수주", "기술 특화"],
-    downwardRisks2025: ["조선업 변동성", "대형 조선소 경쟁", "원자재 비용", "기술 투자"],
-    rating: "보유",
-    targetPrice: "18,000원",
-    currentPrice: "15,500원",
-  },
-  {
-    name: "성동조선해양",
-    code: "053060",
-    theme: "조선 & 해운",
-    marketCap: "3000억원",
-    sector: "조선",
-    investmentPoints: ["해양플랜트 전문", "FPSO 건조", "해상풍력 구조물", "특수선"],
-    upwardMomentum2025: ["해양플랜트 회복", "해상풍력 구조물", "FPSO 수주", "특수선 확대"],
-    downwardRisks2025: ["해양플랜트 변동성", "유가 의존도", "기술 리스크", "자금 조달"],
-    rating: "보유",
-    targetPrice: "25,000원",
-    currentPrice: "22,000원",
-  },
-  {
-    name: "한진",
-    code: "002320",
-    theme: "조선 & 해운",
-    marketCap: "2조원",
-    sector: "물류",
-    investmentPoints: ["종합 물류 서비스", "항공 화물", "해운 물류", "글로벌 네트워크"],
-    upwardMomentum2025: ["전자상거래 물류", "항공 화물 회복", "글로벌 물류", "디지털 물류"],
-    downwardRisks2025: ["물류 시장 경쟁", "연료비 상승", "글로벌 경기", "환율 변동"],
-    rating: "보유",
-    targetPrice: "35,000원",
-    currentPrice: "31,000원",
-  },
-  {
-    name: "흥아해운",
-    code: "003280",
-    theme: "조선 & 해운",
-    marketCap: "8000억원",
-    sector: "해운",
-    investmentPoints: ["벌크선 해운", "원자재 운송", "아시아 항로", "친환경 선박"],
-    upwardMomentum2025: ["벌크선 시황 개선", "원자재 수요", "아시아 무역", "친환경 전환"],
-    downwardRisks2025: ["벌크선 시황 변동", "중국 경기", "연료비 상승", "환경 규제"],
-    rating: "보유",
-    targetPrice: "28,000원",
-    currentPrice: "24,000원",
-  },
-  {
-    name: "대한해운",
-    code: "005880",
-    theme: "조선 & 해운",
-    marketCap: "5000억원",
-    sector: "해운",
-    investmentPoints: ["정기선 해운", "컨테이너 운송", "아시아 항로", "물류 서비스"],
-    upwardMomentum2025: ["컨테이너 운송 회복", "아시아 무역 확대", "물류 통합", "디지털 서비스"],
-    downwardRisks2025: ["해운 시황 변동", "대형 선사 경쟁", "연료비 부담", "환율 리스크"],
-    rating: "보유",
-    targetPrice: "15,000원",
-    currentPrice: "13,500원",
-  },
-  {
-    name: "KSS해운",
-    code: "061970",
-    theme: "조선 & 해운",
-    marketCap: "3000억원",
-    sector: "해운",
-    investmentPoints: ["유조선 전문", "석유제품 운송", "케미컬 탱커", "특수 화물"],
-    upwardMomentum2025: ["유조선 시황 개선", "케미컬 운송 확대", "특수 화물 증가", "친환경 선박"],
-    downwardRisks2025: ["유조선 시황 변동", "유가 변동성", "환경 규제", "경쟁 심화"],
-    rating: "보유",
-    targetPrice: "12,000원",
-    currentPrice: "10,500원",
-  },
-
-  // 10. 화학 & 소재 테마 (15개)
-  {
-    name: "LG화학",
-    code: "051910",
-    theme: "화학 & 소재",
-    marketCap: "50조원",
-    sector: "화학",
-    investmentPoints: ["종합 화학 기업", "첨단소재 기술", "바이오 소재 개발", "글로벌 사업 확장"],
-    upwardMomentum2025: ["첨단소재 수요 증가", "바이오 소재 상용화", "중국 시장 회복", "친환경 제품 확대"],
-    downwardRisks2025: ["원유 가격 변동", "중국 경기 둔화", "환경 규제 강화", "경쟁 심화"],
-    rating: "보유",
-    targetPrice: "420,000원",
-    currentPrice: "385,000원",
-  },
-  {
-    name: "롯데케미칼",
-    code: "011170",
-    theme: "화학 & 소재",
-    marketCap: "8조원",
-    sector: "화학",
-    investmentPoints: ["석유화학 전문", "기초 화학 소재", "친환경 소재", "글로벌 생산 기지"],
-    upwardMomentum2025: ["석유화학 업황 회복", "친환경 소재 전환", "해외 생산 확대", "고부가 제품"],
-    downwardRisks2025: ["원유 가격 변동성", "중국 시장 경쟁", "환경 규제", "원자재 비용"],
-    rating: "보유",
-    targetPrice: "180,000원",
-    currentPrice: "165,000원",
-  },
-  {
-    name: "한화솔루션",
-    code: "009830",
-    theme: "화학 & 소재",
-    marketCap: "25조원",
-    sector: "화학",
-    investmentPoints: ["석유화학 및 태양광", "PVC 글로벌 1위", "친환경 소재", "순환경제"],
-    upwardMomentum2025: ["PVC 수요 회복", "친환경 소재 확대", "순환경제 전환", "태양광 시너지"],
-    downwardRisks2025: ["석유화학 시황", "환경 규제 강화", "원자재 가격", "경쟁 심화"],
-    rating: "보유",
-    targetPrice: "45,000원",
-    currentPrice: "38,000원",
-  },
-  {
-    name: "SK케미칼",
-    code: "285130",
-    theme: "화학 & 소재",
-    marketCap: "3조원",
-    sector: "화학",
-    investmentPoints: ["특수 화학 소재", "바이오 화학", "친환경 소재", "의약 중간체"],
-    upwardMomentum2025: ["특수 소재 수요", "바이오 화학 성장", "친환경 전환", "의약 소재"],
-    downwardRisks2025: ["화학 시장 경쟁", "원자재 가격", "환경 규제", "기술 투자"],
-    rating: "보유",
-    targetPrice: "85,000원",
-    currentPrice: "75,000원",
-  },
-  {
-    name: "금호석유화학",
-    code: "011780",
-    theme: "화학 & 소재",
-    marketCap: "2조원",
-    sector: "화학",
-    investmentPoints: ["합성고무 전문", "특수 화학", "타이어 소재", "친환경 고무"],
-    upwardMomentum2025: ["합성고무 수요 증가", "타이어 시장 회복", "친환경 고무", "특수 용도 확대"],
-    downwardRisks2025: ["원유 가격 변동", "자동차 시장 변화", "환경 규제", "경쟁 심화"],
-    rating: "보유",
-    targetPrice: "180,000원",
-    currentPrice: "165,000원",
-  },
-  {
-    name: "코오롱인더",
-    code: "120110",
-    theme: "화학 & 소재",
-    marketCap: "3조원",
-    sector: "소재",
-    investmentPoints: ["산업용 소재", "필름 및 섬유", "친환경 소재", "첨단 소재"],
-    upwardMomentum2025: ["산업용 소재 수요", "친환경 소재 전환", "첨단 소재 개발", "해외 진출"],
-    downwardRisks2025: ["소재 시장 경쟁", "원자재 가격", "기술 투자", "환경 규제"],
-    rating: "보유",
-    targetPrice: "65,000원",
-    currentPrice: "58,000원",
-  },
-  {
-    name: "효성화학",
-    code: "298020",
-    theme: "화학 & 소재",
-    marketCap: "1조원",
-    sector: "화학",
-    investmentPoints: ["스판덱스 글로벌 1위", "나일론 사업", "친환경 섬유", "리사이클링"],
-    upwardMomentum2025: ["스판덱스 수요 회복", "친환경 섬유 확산", "리사이클링 확대", "고부가 제품"],
-    downwardRisks2025: ["섬유 시장 변화", "원자재 가격", "중국 경쟁", "환경 규제"],
-    rating: "보유",
-    targetPrice: "450,000원",
-    currentPrice: "385,000원",
-  },
-  {
-    name: "동진쎄미켐",
-    code: "005290",
-    theme: "화학 & 소재",
-    marketCap: "2조원",
-    sector: "반도체소재",
-    investmentPoints: ["반도체 소재 전문", "포토레지스트", "식각액", "세정액"],
-    upwardMomentum2025: ["반도체 소재 수요", "첨단 공정 소재", "AI 반도체 확산", "해외 진출"],
-    downwardRisks2025: ["반도체 사이클", "일본 업체 경쟁", "기술 투자", "고객 집중도"],
-    rating: "매수",
-    targetPrice: "35,000원",
-    currentPrice: "31,000원",
-  },
-  {
-    name: "솔브레인",
-    code: "357780",
-    theme: "화학 & 소재",
-    marketCap: "1조원",
-    sector: "반도체소재",
-    investmentPoints: ["반도체 세정액", "디스플레이 소재", "2차전지 소재", "특수 화학"],
-    upwardMomentum2025: ["반도체 세정액 수요", "디스플레이 회복", "2차전지 소재", "특수 화학 확대"],
-    downwardRisks2025: ["반도체 변동성", "경쟁사 추격", "원자재 가격", "기술 투자"],
-    rating: "매수",
-    targetPrice: "280,000원",
-    currentPrice: "245,000원",
-  },
-  {
-    name: "후성",
-    code: "093370",
-    theme: "화학 & 소재",
-    marketCap: "8000억원",
-    sector: "화학",
-    investmentPoints: ["불화수소 전문", "반도체 소재", "디스플레이 소재", "특수 가스"],
-    upwardMomentum2025: ["불화수소 수요 증가", "반도체 소재 확대", "특수 가스 성장", "국산화 수혜"],
-    downwardRisks2025: ["반도체 사이클", "일본 업체 경쟁", "환경 규제", "안전 리스크"],
-    rating: "보유",
-    targetPrice: "18,000원",
-    currentPrice: "15,500원",
-  },
-  {
-    name: "덕산네오룩스",
-    code: "213420",
-    theme: "화학 & 소재",
-    marketCap: "5000억원",
-    sector: "디스플레이소재",
-    investmentPoints: ["OLED 소재 전문", "발광 소재", "디스플레이 화학", "차세대 소재"],
-    upwardMomentum2025: ["OLED 시장 확대", "발광 소재 수요", "차세대 디스플레이", "해외 진출"],
-    downwardRisks2025: ["디스플레이 사이클", "중국 업체 경쟁", "기술 투자", "특허 리스크"],
-    rating: "보유",
-    targetPrice: "45,000원",
-    currentPrice: "38,000원",
-  },
-  {
-    name: "피엔티",
-    code: "137400",
-    theme: "화학 & 소재",
-    marketCap: "3000억원",
-    sector: "반도체소재",
-    investmentPoints: ["반도체 패키징 소재", "EMC 컴파운드", "언더필", "다이어태치"],
-    upwardMomentum2025: ["반도체 패키징 수요", "첨단 패키징 확산", "AI 반도체 성장", "자동차 반도체"],
-    downwardRisks2025: ["반도체 변동성", "일본 업체 경쟁", "원자재 가격", "기술 투자"],
-    rating: "보유",
-    targetPrice: "28,000원",
-    currentPrice: "24,000원",
-  },
-  {
-    name: "원익머티리얼즈",
-    code: "104480",
-    theme: "화학 & 소재",
-    marketCap: "2조원",
-    sector: "반도체소재",
-    investmentPoints: ["반도체 가스 전문", "특수 가스", "벌크 가스", "가스 공급 시스템"],
-    upwardMomentum2025: ["반도체 가스 수요", "특수 가스 확대", "국산화 가속", "해외 진출"],
-    downwardRisks2025: ["반도체 사이클", "가스 가격 변동", "안전 리스크", "경쟁 심화"],
-    rating: "매수",
-    targetPrice: "65,000원",
-    currentPrice: "58,000원",
-  },
-  {
-    name: "테크노세미켐",
-    code: "036490",
-    theme: "화학 & 소재",
-    marketCap: "1조원",
-    sector: "반도체소재",
-    investmentPoints: ["CMP 슬러리", "연마재", "반도체 소재", "디스플레이 소재"],
-    upwardMomentum2025: ["CMP 슬러리 수요", "첨단 공정 확산", "연마재 시장", "국산화 수혜"],
-    downwardRisks2025: ["반도체 변동성", "일본 업체 경쟁", "기술 투자", "원자재 가격"],
-    rating: "보유",
-    targetPrice: "85,000원",
-    currentPrice: "75,000원",
-  },
-  {
-    name: "상아프론테크",
-    code: "089980",
-    theme: "화학 & 소재",
-    marketCap: "8000억원",
-    sector: "반도체소재",
-    investmentPoints: ["반도체 마스크", "포토마스크", "디스플레이 마스크", "정밀 가공"],
-    upwardMomentum2025: ["반도체 마스크 수요", "첨단 공정 확산", "디스플레이 회복", "정밀 가공 기술"],
-    downwardRisks2025: ["반도체 사이클", "일본 업체 경쟁", "기술 투자", "고객 집중도"],
-    rating: "보유",
-    targetPrice: "35,000원",
-    currentPrice: "31,000원",
-  },
-
-  // 나머지 테마들도 계속 추가...
-  // 11. 소비재 & 유통 테마부터 20. 교육 & 서비스 테마까지 각각 15개씩 추가 필요
-]
-
-const themes = [
-  "전체",
-  "반도체 & IT",
-  "2차전지 & 전기차",
-  "바이오 & 헬스케어",
-  "자동차 & 모빌리티",
-  "신재생에너지 & 친환경",
-  "방산 & 항공우주",
-  "엔터 & 미디어",
-  "금융 & 핀테크",
-  "조선 & 해운",
-  "화학 & 소재",
-  "소비재 & 유통",
-  "건설 & 부동산",
-  "항공 & 여행",
-  "게임 & 소프트웨어",
-  "통신 & 네트워크",
-  "식품 & 농업",
-  "패션 & 뷰티",
-  "스포츠 & 레저",
-  "교육 & 서비스",
-]
-
-export default function CompanyExplorer() {
-  const [selectedTheme, setSelectedTheme] = useState("전체")
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filteredCompanies, setFilteredCompanies] = useState(companyData)
-
-  // 테마 선택 및 검색 필터링
-  const handleThemeChange = (theme: string) => {
-    setSelectedTheme(theme)
-    filterCompanies(theme, searchTerm)
-  }
-
-  const handleSearchChange = (search: string) => {
-    setSearchTerm(search)
-    filterCompanies(selectedTheme, search)
-  }
-
-  const filterCompanies = (theme: string, search: string) => {
-    let filtered = companyData
-
-    if (theme !== "전체") {
-      filtered = filtered.filter((company) => company.theme === theme)
+      const data = await response.json();
+      if (data.success) {
+        setGeminiInsight(data.insight);
+        if (!hasUserClosedDialog) { // Only show if user hasn't closed it
+          setShowGeminiInsightDialog(true); // Open dialog
+        }
+      } else {
+        setGeminiInsight(data.error || "Gemini 인사이트를 가져오는 데 실패했습니다.");
+        if (!hasUserClosedDialog) { // Only show if user hasn't closed it
+          setShowGeminiInsightDialog(true); // Open dialog with error
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching Gemini insight:", error);
+      setGeminiInsight("Gemini 인사이트를 가져오는 중 오류가 발생했습니다.");
+      if (!hasUserClosedDialog) { // Only show if user hasn't closed it
+        setShowGeminiInsightDialog(true); // Open dialog with error
+      }
+    } finally {
+      setLoadingGeminiInsight(false);
     }
+  };
 
-    if (search) {
-      filtered = filtered.filter(
-        (company) =>
-          company.name.toLowerCase().includes(search.toLowerCase()) ||
-          company.sector.toLowerCase().includes(search.toLowerCase()),
-      )
+  const filteredCompanies = useMemo(() => {
+    let currentCompanies = companyData;
+
+    console.log("Debug: Filtering companies. SearchTerm:", searchTerm, "SelectedTheme:", selectedTheme);
+
+    if (selectedTheme !== '전체') {
+      currentCompanies = currentCompanies.filter(company => company.theme === selectedTheme);
     }
-
-    setFilteredCompanies(filtered)
-  }
-
-  const getRatingColor = (rating: string) => {
-    switch (rating) {
-      case "매수":
-        return "bg-green-500/20 text-green-400 border-green-500"
-      case "보유":
-        return "bg-yellow-500/20 text-yellow-400 border-yellow-500"
-      case "매도":
-        return "bg-red-500/20 text-red-400 border-red-500"
-      default:
-        return "bg-gray-500/20 text-gray-400 border-gray-500"
+    if (searchTerm) {
+      const lowerCaseSearchTerm = searchTerm.toLowerCase();
+      currentCompanies = currentCompanies.filter(
+        company => {
+          console.log(`Debug: Company Name: ${company.name}, Stock Code: ${company.stockCode}`);
+          return company.name.toLowerCase().includes(lowerCaseSearchTerm) || company.stockCode.includes(lowerCaseSearchTerm);
+        }
+      );
     }
-  }
+    return currentCompanies;
+  }, [companyData, selectedTheme, searchTerm]);
 
-  const calculateUpside = (current: string, target: string) => {
-    const currentPrice = Number.parseInt(current.replace(/[^0-9]/g, ""))
-    const targetPrice = Number.parseInt(target.replace(/[^0-9]/g, ""))
-    return (((targetPrice - currentPrice) / currentPrice) * 100).toFixed(1)
-  }
+  const getStatusVisuals = (status: 'positive' | 'negative' | 'neutral') => {
+    switch (status) {
+      case 'positive': return { icon: <TrendingUp className="h-5 w-5 text-red-400" />, color: 'text-red-400' };
+      case 'negative': return { icon: <TrendingDown className="h-5 w-5 text-blue-400" />, color: 'text-blue-400' };
+      default: return { icon: <Minus className="h-5 w-5 text-gray-500" />, color: 'text-gray-300' };
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* 헤더 */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2 flex items-center justify-center">
-            <Building2 className="h-8 w-8 mr-3 text-blue-400" />
-            기업 탐색기
-          </h1>
-          <p className="text-gray-400 mb-4">20개 테마, 300개 기업의 투자 포인트와 2025년 전망을 한눈에</p>
-        </div>
+    <React.Fragment>
+      <div className="space-y-6 h-[calc(100vh-180px)]"> {/* 높이 조절 */}
+      <ResizablePanelGroup direction="horizontal" className="min-h-[500px] rounded-lg border border-[#333333]">
+        {/* 왼쪽 테마 목록 패널 */}
+        <ResizablePanel defaultSize={25} minSize={15}>
+          <Card className="h-full bg-[#1a1a1a] border-none rounded-lg shadow-lg flex flex-col">
+            <CardHeader className="p-4 pb-2 border-b border-[#333333]">
+              <CardTitle className="text-lg font-semibold text-white">테마 목록</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 flex-grow overflow-hidden">
+              <ScrollArea className="h-[calc(100%-60px)] overflow-y-auto">
+                <div className="p-2 space-y-1">
+                  {themes.map(theme => {
+                    console.log(`Debug: Original theme string: '${theme}'`); // New debug print
+                    const displayThemeName = theme.includes('|') ? theme.split('|')[1] : theme;
+                    console.log(`Debug: Display theme name: '${displayThemeName}'`); // New debug print
+                    return (
+                      <Button
+                        key={theme} // Keep original theme for key and selection
+                        variant="ghost"
+                        className={`w-full justify-start text-left text-sm font-medium transition-colors duration-200 ${
+                          selectedTheme === theme ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-gray-300 hover:bg-[#2a2a2a]'
+                        }`}
+                        onClick={() => setSelectedTheme(theme)}
+                      >
+                        {displayThemeName} {/* Display only the name part */}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </ResizablePanel>
 
-        {/* 검색 및 테마 선택 */}
-        <div className="mb-8 space-y-6">
-          {/* 검색바 */}
-          <div className="max-w-md mx-auto">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+        <ResizableHandle withHandle className="bg-[#333333] hover:bg-blue-600 transition-colors duration-200" />
+
+        {/* 오른쪽 기업 정보 패널 */}
+        <ResizablePanel defaultSize={75} minSize={50}>
+          <Card className="h-full bg-[#1a1a1a] border-none rounded-lg shadow-lg flex flex-col">
+            <CardHeader className="p-4 pb-2 border-b border-[#333333]">
+              <CardTitle className="text-lg font-semibold text-white mb-3">
+                {selectedTheme === '전체' ? '전체 기업' : `${selectedTheme.includes('|') ? selectedTheme.split('|')[1] : selectedTheme} 테마 기업`}
+              </CardTitle>
               <Input
-                placeholder="기업명 또는 섹터 검색..."
+                type="text"
+                placeholder="기업명, 종목코드 검색..."
                 value={searchTerm}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-10 bg-gray-800 border-gray-600 text-white"
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-[#2a2a2a] border border-[#444444] text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-md py-2"
               />
-            </div>
-          </div>
-
-          {/* 테마 선택 */}
-          <div className="flex flex-wrap justify-center gap-2">
-            {themes.map((theme) => (
-              <Button
-                key={theme}
-                variant={selectedTheme === theme ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleThemeChange(theme)}
-                className={
-                  selectedTheme === theme
-                    ? "bg-blue-600 hover:bg-blue-700"
-                    : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                }
-              >
-                {theme}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* 통계 */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-400">총 기업 수</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">{filteredCompanies.length}</div>
+            <CardContent className="p-4 flex-grow overflow-hidden">
+              <ScrollArea className="h-[calc(100%-120px)] pr-2 overflow-y-auto">
+                {filteredCompanies.length === 0 ? (
+                  <div className="text-center text-gray-400 py-8">
+                    <p>표시할 기업 정보가 없습니다.</p>
+                    {selectedTheme !== '전체' && (
+                      <p className="text-sm mt-2">선택된 테마에 해당하는 기업이 없습니다.</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {filteredCompanies.map(company => {
+                      const realTimeData = stockData[company.stockCode];
+                      const visuals = getStatusVisuals(realTimeData?.status);
+
+                      return (
+                        <Card key={`${company.theme}-${company.stockCode}`} className="bg-[#1a1a1a] border border-[#333333] rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col overflow-hidden">
+                          {/* Header Section */}
+                          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between border-b border-[#333333]">
+                            <div className="flex flex-col">
+                              <Badge className="bg-blue-700 text-white px-2 py-0.5 rounded-full text-xs mb-1 self-start">
+                                {company.theme.includes('|') ? company.theme.split('|')[1] : company.theme}
+                              </Badge>
+                              <CardTitle className="text-lg font-semibold text-white leading-tight">{company.name} ({company.stockCode})</CardTitle>
+                            </div>
+                            {isConnected && realTimeData ? (
+                              <div className="text-right flex-shrink-0">
+                                <p className={`text-xl font-bold ${visuals.color}`}>{realTimeData.current_price.toLocaleString()}원</p>
+                                <div className={`flex items-center justify-end gap-1 text-sm ${visuals.color}`}>
+                                  {visuals.icon}
+                                  <span>{realTimeData.change.toLocaleString()} ({realTimeData.change_rate.toFixed(2)}%)</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <></>
+                            )}
+                          </CardHeader>
+
+                          {/* Main Content Section */}
+                          <CardContent className="p-4 pt-3 flex-grow flex flex-col">
+                            {/* Key Metrics */}
+                            <div className="mb-4">
+                                <h4 className="text-sm font-semibold text-gray-400 mb-2">주요 지표</h4>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-300">
+                                    {company.currentPrice && <p>현재가: <span className="font-semibold text-white">{parseInt(company.currentPrice).toLocaleString()}원</span></p>}
+                                    {company.openingPrice && <p>시가: <span className="font-semibold text-white">{parseInt(company.openingPrice).toLocaleString()}원</span></p>}
+                                    {company.highPrice && <p>고가: <span className="font-semibold text-white">{parseInt(company.highPrice).toLocaleString()}원</span></p>}
+                                    {company.lowPrice && <p>저가: <span className="font-semibold text-white">{parseInt(company.lowPrice).toLocaleString()}원</span></p>}
+                                    {company.marketCap && <p>시가총액: <span className="font-semibold text-white">{parseInt(company.marketCap).toLocaleString()}원</span></p>}
+                                    {company.per && <p>PER: <span className="font-semibold text-white">{company.per}</span></p>}
+                                    {company.change && company.changeRate && (
+                                        <p className="col-span-2">전일대비: <span className={`font-semibold ${parseFloat(company.change) > 0 ? 'text-red-400' : parseFloat(company.change) < 0 ? 'text-blue-400' : 'text-gray-300'}`}>{parseInt(company.change).toLocaleString()}원 ({parseFloat(company.changeRate).toFixed(2)}%)</span></p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Investment Insights */}
+                            {(company.reason || company.bull || company.bear) && (
+                              <div className="flex-grow">
+                                  <h4 className="text-sm font-semibold text-gray-400 mb-2">투자 인사이트</h4>
+                                  <CardDescription className="text-gray-300 text-sm mb-2 line-clamp-2">{company.reason}</CardDescription>
+                                  <ScrollArea className="h-24 pr-2"> {/* Adjusted height for insights scroll */}
+                                    <div className="space-y-1 text-sm">
+                                      <p className="text-green-400"><span className="font-bold">Bull:</span> <span dangerouslySetInnerHTML={{ __html: company.bull }}></span></p>
+                                      <p className="text-red-400"><span className="font-bold">Bear:</span> <span dangerouslySetInnerHTML={{ __html: company.bear }}></span></p>
+                                    </div>
+                                  </ScrollArea>
+                                  {showGeminiInsightDialog && geminiInsight && (
+                                    <div className="mt-3 p-3 bg-[#2a2a3a] rounded-md border border-[#444444] text-gray-200 text-sm">
+                                      <h5 className="font-semibold mb-2">Gemini 투자 모멘텀:</h5>
+                                      <p>{geminiInsight}</p>
+                                    </div>
+                                  )}
+                              </div>
+                            )}
+                            {/* Gemini Insight Button - Always visible */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-3 w-full bg-[#2a2a2a] border-[#444444] text-gray-100 hover:bg-[#3a3a3a]"
+                              onClick={() => handleGetGeminiInsight(company.stockCode, company.name)}
+                            >
+                              2025년 투자 모멘텀
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
             </CardContent>
           </Card>
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-400">매수 추천</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-400">
-                {filteredCompanies.filter((c) => c.rating === "매수").length}
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-400">보유 추천</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-400">
-                {filteredCompanies.filter((c) => c.rating === "보유").length}
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-400">선택된 테마</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg font-bold text-blue-400">{selectedTheme}</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* 기업 카드 목록 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredCompanies.length === 0 ? (
-            <div className="col-span-full text-center py-12">
-              <p className="text-gray-400">검색 조건에 맞는 기업이 없습니다.</p>
-            </div>
-          ) : (
-            filteredCompanies.map((company, index) => (
-              <Card key={index} className="bg-gray-800 border-gray-700 hover:bg-gray-750 transition-colors">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-xl text-white mb-2">
-                        {company.name} ({company.code})
-                      </CardTitle>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="outline" className="border-blue-600 text-blue-300">
-                          {company.theme}
-                        </Badge>
-                        <Badge variant="outline" className="border-gray-600 text-gray-300">
-                          {company.sector}
-                        </Badge>
-                        <Badge variant="outline" className="border-purple-600 text-purple-300">
-                          {company.marketCap}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <Badge className={`${getRatingColor(company.rating)} border`}>{company.rating}</Badge>
-                      <div className="text-sm text-gray-400 mt-1">
-                        상승여력: +{calculateUpside(company.currentPrice, company.targetPrice)}%
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* 투자 포인트 */}
-                  <div>
-                    <h4 className="flex items-center text-sm font-semibold text-blue-300 mb-2">
-                      <Target className="h-4 w-4 mr-1" />
-                      투자 포인트
-                    </h4>
-                    <ul className="text-sm text-gray-300 space-y-1">
-                      {company.investmentPoints.map((point, idx) => (
-                        <li key={idx} className="flex items-start">
-                          <span className="text-blue-400 mr-2">•</span>
-                          {point}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* 2025년 상승 모멘텀 */}
-                  <div>
-                    <h4 className="flex items-center text-sm font-semibold text-green-300 mb-2">
-                      <TrendingUp className="h-4 w-4 mr-1" />
-                      2025년 상승 모멘텀
-                    </h4>
-                    <ul className="text-sm text-gray-300 space-y-1">
-                      {company.upwardMomentum2025.slice(0, 3).map((momentum, idx) => (
-                        <li key={idx} className="flex items-start">
-                          <span className="text-green-400 mr-2">↗</span>
-                          {momentum}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* 2025년 하방 리스크 */}
-                  <div>
-                    <h4 className="flex items-center text-sm font-semibold text-red-300 mb-2">
-                      <AlertTriangle className="h-4 w-4 mr-1" />
-                      2025년 하방 리스크
-                    </h4>
-                    <ul className="text-sm text-gray-300 space-y-1">
-                      {company.downwardRisks2025.slice(0, 3).map((risk, idx) => (
-                        <li key={idx} className="flex items-start">
-                          <span className="text-red-400 mr-2">↘</span>
-                          {risk}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* 가격 정보 */}
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-700">
-                    <div className="flex items-center gap-4">
-                      <div>
-                        <div className="text-xs text-gray-400">현재가</div>
-                        <div className="text-lg font-bold text-white">{company.currentPrice}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-400">목표가</div>
-                        <div className="text-lg font-bold text-green-400">{company.targetPrice}</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs text-gray-400">상승여력</div>
-                      <div className="text-lg font-bold text-blue-400">
-                        +{calculateUpside(company.currentPrice, company.targetPrice)}%
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
       </div>
-    </div>
-  )
+
+    {/* Gemini Insight AlertDialog */}
+    <AlertDialog open={showGeminiInsightDialog} onOpenChange={(open) => { if (!open) setHasUserClosedDialog(true); setShowGeminiInsightDialog(open); }}>
+      <AlertDialogContent className="bg-gradient-to-br from-[#1A202C] to-[#2D3748] border border-[#4A5568] text-gray-100 max-w-lg max-h-[80vh] overflow-y-auto rounded-xl shadow-2xl">
+        <AlertDialogHeader className="p-6 pb-4 border-b border-[#4A5568]">
+          <AlertDialogTitle className="text-white text-2xl font-extrabold leading-tight">
+            {currentInsightCompany ? `${currentInsightCompany.name} (${currentInsightCompany.stockCode})` : ''} 2025년 투자 모멘텀
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-gray-300 space-y-4 p-6 pt-4">
+            {loadingGeminiInsight ? (
+              <div className="flex items-center justify-center py-8 text-blue-400">
+                <Loader2 className="mr-3 h-6 w-6 animate-spin" /> 정보 수집중...
+              </div>
+            ) : (
+              geminiInsight ? renderInsight(geminiInsight) : "분석 결과를 불러올 수 없습니다."
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="p-6 pt-4 border-t border-[#4A5568]">
+          <AlertDialogAction className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg">닫기</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </React.Fragment>
+  );
 }
+
+// Helper function to render insight with basic markdown-like formatting
+const renderInsight = (text: string) => {
+  const lines = text.split('\n');
+  const elements: JSX.Element[] = [];
+  let currentListItems: JSX.Element[] = [];
+
+  const processLine = (line: string, key: number) => {
+    // Process bold text
+    return <span key={key} dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />;
+  };
+
+  lines.forEach((line, index) => {
+    if (line.startsWith('## ')) {
+      // If there were pending list items, render the list before the new heading
+      if (currentListItems.length > 0) {
+        elements.push(<ul key={`ul-prev-${index}`} className="list-disc list-inside ml-4 space-y-1">{currentListItems}</ul>);
+        currentListItems = [];
+      }
+      elements.push(
+        <h2 key={index} className="text-xl font-bold text-blue-300 mt-4 mb-2">
+          {processLine(line.substring(3).trim(), index)}
+        </h2>
+      );
+    } else if (line.startsWith('* ')) {
+      // Add to current list items
+      currentListItems.push(
+        <li key={index} className="text-gray-300 leading-relaxed">
+          {processLine(line.substring(2).trim(), index)}
+        </li>
+      );
+    } else {
+      // If there were pending list items, render the list before the new paragraph
+      if (currentListItems.length > 0) {
+        elements.push(<ul key={`ul-curr-${index}`} className="list-disc list-inside ml-4 space-y-1">{currentListItems}</ul>);
+        currentListItems = [];
+      }
+      // Handle empty lines as spacers or just ignore them if desired
+      if (line.trim() === '') {
+        elements.push(<div key={index} className="h-2"></div>); // Spacer
+      } else {
+        elements.push(
+          <p key={index} className="text-gray-200 leading-relaxed">
+            {processLine(line.trim(), index)}
+          </p>
+        );
+      }
+    }
+  });
+
+  // Render any remaining list items at the end
+  if (currentListItems.length > 0) {
+    elements.push(<ul key="ul-final" className="list-disc list-inside ml-4 space-y-1">{currentListItems}</ul>);
+  }
+
+  return elements;
+};

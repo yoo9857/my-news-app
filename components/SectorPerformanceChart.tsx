@@ -13,25 +13,30 @@ const sectorData = [
 
 export default function SectorPerformanceChart() {
   return (
-    <Card className="bg-gray-800 border-gray-700 text-white">
-      <CardHeader>
-        <CardTitle className="text-xl text-white">섹터별 수익률 비교</CardTitle>
+    <Card className="bg-[#1a1a1a] border border-[#333333] text-white rounded-lg shadow-lg">
+      <CardHeader className="p-6">
+        <CardTitle className="text-2xl font-bold text-white mb-2 border-b border-blue-600 pb-2">섹터별 수익률 비교</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-6 pt-0">
         <div className="h-[400px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={sectorData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
-              <XAxis dataKey="name" stroke="#cbd5e0" />
-              <YAxis stroke="#cbd5e0" label={{ value: '%', position: 'insideTopLeft', offset: -10, fill: '#cbd5e0' }}/>
+            <BarChart data={sectorData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#333333" />
+              <XAxis dataKey="name" stroke="#e0e0e0" tick={{ fill: '#e0e0e0' }} />
+              <YAxis stroke="#e0e0e0" label={{ value: '%', position: 'insideTopLeft', offset: -10, fill: '#e0e0e0' }} tick={{ fill: '#e0e0e0' }}/>
               <Tooltip
-                contentStyle={{ backgroundColor: '#1a202c', border: '1px solid #4a5568' }}
-                labelStyle={{ color: '#e2e8f0' }}
+                cursor={{ fill: 'rgba(59, 130, 246, 0.2)' }}
+                contentStyle={{ backgroundColor: '#2a2a2a', border: '1px solid #444444', borderRadius: '5px' }}
+                labelStyle={{ color: '#e2e8f0', fontWeight: 'bold' }}
+                itemStyle={{ color: '#e2e8f0' }}
                 formatter={(value: number) => `${value.toFixed(1)}%`}
               />
-              <Legend wrapperStyle={{ color: '#e2e8f0' }} />
-              <Bar dataKey="1개월 수익률" fill="#8884d8" />
-              <Bar dataKey="3개월 수익률" fill="#82ca9d" />
+              <Legend
+                wrapperStyle={{ color: '#e2e8f0', paddingTop: '10px' }}
+                iconType="circle"
+              />
+              <Bar dataKey="1개월 수익률" fill="#3b82f6" barSize={30} radius={[5, 5, 0, 0]} />
+              <Bar dataKey="3개월 수익률" fill="#10b981" barSize={30} radius={[5, 5, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

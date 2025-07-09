@@ -143,6 +143,7 @@ async function fetchNaverNews(enabled = true, customSearchTerms: string[] = []):
   try {
     console.log("🔍 Fetching Naver News...");
     const defaultSearchTerms = ["한국 경제", "코스피", "증시", "반도체", "삼성전자 주가", "SK하이닉스 실적", "현대자동차 전기차", "LG에너지솔루션 배터리", "네이버 AI", "카카오 주식",];
+    // customSearchTerms가 제공되면 그것을 사용하고, 아니면 defaultSearchTerms를 사용
     const termsToUse = customSearchTerms.length > 0 ? customSearchTerms.slice(0, 5) : defaultSearchTerms.slice(0, 6);
 
     for (const term of termsToUse) {
@@ -204,7 +205,7 @@ async function fetchNaverNews(enabled = true, customSearchTerms: string[] = []):
   return { news, errors };
 }
 
-async function fetchNewsAPI(enabled = true): Promise<{ news: NewsItem[]; errors: string[] }> {
+async function fetchNewsAPI(enabled = true, customSearchTerms: string[] = []): Promise<{ news: NewsItem[]; errors: string[] }> {
   const news: NewsItem[] = []
   const errors: string[] = []
 
@@ -225,15 +226,17 @@ async function fetchNewsAPI(enabled = true): Promise<{ news: NewsItem[]; errors:
   try {
     console.log("🔍 Fetching NewsAPI...")
 
-    const queries = [
+    const defaultQueries = [
       "South Korea economy", "Korean stock market", "Samsung Electronics",
       "Hyundai Motor", "LG Energy Solution", "Korean semiconductor"
     ]
+    // customSearchTerms가 제공되면 그것을 사용하고, 아니면 defaultQueries를 사용
+    const termsToUse = customSearchTerms.length > 0 ? customSearchTerms.slice(0, 3) : defaultQueries.slice(0, 3); // Limit to 3 queries
 
-    for (const query of queries.slice(0, 3)) { // Reducing queries to 3 to ease rate limit
+    for (const term of termsToUse) {
       try {
-        const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=7&apiKey=${NEWS_API_KEY}`; // pageSize 7
-        console.log(`➡️ Calling NewsAPI for query: "${query}"`);
+        const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(term)}&language=en&sortBy=publishedAt&pageSize=7&apiKey=${NEWS_API_KEY}`; // pageSize 7
+        console.log(`➡️ Calling NewsAPI for query: "${term}"`);
 
         const response = await fetch(url, {
           method: "GET",
@@ -246,11 +249,11 @@ async function fetchNewsAPI(enabled = true): Promise<{ news: NewsItem[]; errors:
         if (response.ok) {
           const data = await response.json()
           if (data.articles && data.articles.length > 0) {
-            console.log(`✅ NewsAPI success for "${query}": ${data.articles.length} articles found.`)
+            console.log(`✅ NewsAPI success for "${term}": ${data.articles.length} articles found.`)
             const newsApiArticles = data.articles
               .filter((item: any) => item.title && item.description && item.url)
               .map((item: any, index: number) => ({
-                id: `newsapi-${query.replace(/\s+/g, "-")}-${new Date(item.publishedAt).getTime()}-${index}`,
+                id: `newsapi-${term.replace(/\s+/g, "-")}-${new Date(item.publishedAt).getTime()}-${index}`,
                 title: cleanText(item.title),
                 description: cleanText(item.description),
                 link: item.url,
@@ -263,21 +266,21 @@ async function fetchNewsAPI(enabled = true): Promise<{ news: NewsItem[]; errors:
               }))
             news.push(...newsApiArticles)
           } else {
-            console.log(`ℹ️ NewsAPI for "${query}": No articles found.`)
+            console.log(`ℹ️ NewsAPI for "${term}": No articles found.`)
           }
         } else {
           const errorData = await response.json();
-          const errorMsg = `NewsAPI 실패 for "${query}" [${response.status}]: ${errorData.message || JSON.stringify(errorData)}`;
+          const errorMsg = `NewsAPI 실패 for "${term}" [${response.status}]: ${errorData.message || JSON.stringify(errorData)}`;
           console.error(`❌ ${errorMsg}`);
-          errors.push(`NewsAPI (${query}): ${errorData.message || `HTTP ${response.status}`}`);
+          errors.push(`NewsAPI (${term}): ${errorData.message || `HTTP ${response.status}`}`);
         }
       } catch (termError: any) {
         if (termError.name === 'TimeoutError') {
-          console.error(`❌ NewsAPI timeout for "${query}".`);
-          errors.push(`NewsAPI (${query}): 요청 타임아웃`);
+          console.error(`❌ NewsAPI timeout for "${term}".`);
+          errors.push(`NewsAPI (${term}): 요청 타임아웃`);
         } else {
-          console.error(`❌ NewsAPI fetch error for "${query}":`, termError);
-          errors.push(`NewsAPI (${query}): ${termError.message || '알 수 없는 오류'}`);
+          console.error(`❌ NewsAPI fetch error for "${term}":`, termError);
+          errors.push(`NewsAPI (${term}): ${termError.message || '알 수 없는 오류'}`);
         }
       }
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -298,6 +301,11 @@ async function fetchNewsAPI(enabled = true): Promise<{ news: NewsItem[]; errors:
 async function fetchRSSNews(enabledSources: string[] = []): Promise<{ news: NewsItem[]; errors: string[] }> {
   const news: NewsItem[] = []
   const errors: string[] = []
+
+  if (!enabledSources || enabledSources.length === 0) {
+    console.log("🔇 No RSS feeds enabled or requested.")
+    return { news, errors }
+  }
 
   // 한국 주요 언론사 RSS 피드 정보
   // ************ 중요: URL 유효성 및 내용 (경제 뉴스만 포함 여부)을 반드시 확인하세요 ************
@@ -467,6 +475,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const sourcesParam = searchParams.get("sources")
+    const queryParam = searchParams.get("query"); // 검색어 파라미터 추출
 
     let enabledSources: string[] = []
     if (sourcesParam) {
@@ -481,9 +490,13 @@ export async function GET(request: NextRequest) {
 
     console.log(`🚀 Starting news collection at ${new Date().toISOString()}`);
     console.log("📋 Enabled sources (GET):", enabledSources.length > 0 ? enabledSources.join(", ") : "None selected");
+    if (queryParam) {
+      console.log("🔍 Search query (GET):", queryParam);
+    }
 
-    if (enabledSources.length === 0) {
-      console.log("⚠️ No sources enabled, returning error.");
+
+    if (enabledSources.length === 0 && !queryParam) { // 검색어가 없으면서 소스도 선택되지 않은 경우
+      console.log("⚠️ No sources enabled and no query, returning error.");
       return NextResponse.json({
         success: false,
         count: 0,
@@ -492,7 +505,7 @@ export async function GET(request: NextRequest) {
           "연합뉴스", "매일경제", "이투데이", "아시아경제", "이데일리"
         ]),
         timestamp: new Date().toISOString(),
-        error: "뉴스 소스를 하나 이상 선택해주세요.",
+        error: "뉴스 소스를 하나 이상 선택하거나 검색어를 입력해주세요.",
         hasRealNews: false,
         systemInfo: { naverNewsCount: 0, newsApiCount: 0, rssNewsCount: 0, totalErrors: 0 },
       }, { status: 400 }); // 400 Bad Request
@@ -512,15 +525,20 @@ export async function GET(request: NextRequest) {
     // fetchRSSNews 함수 내의 rssFeeds 배열에 정의된 모든 RSS 소스 이름을 가져와서
     // 현재 enabledSources에 포함된 것들만 필터링하도록 합니다.
     const allRssFeedNames = [
-        "연합뉴스", "매일경제", "이투데이", "아시아경제", "이데일리"
+        "연합뉴스",
+        "매일경제",
+        "이투데이",
+        "아시아경제",
+        "이데일리"
     ];
     const rssActiveSources = enabledSources.filter((source) => allRssFeedNames.includes(source));
 
     // 병렬 호출 (Race condition 주의, 뉴스 기사 ID 중복 방지 로직 필요)
     const [naverResult, newsApiResult, rssResult] = await Promise.all([
-      fetchNaverNews(isNaverEnabled),
-      fetchNewsAPI(isNewsAPIEnabled),
-      fetchRSSNews(rssActiveSources), // 수정된 rssActiveSources 전달
+      // 검색어가 있으면 해당 검색어를 customSearchTerms로 전달
+      fetchNaverNews(isNaverEnabled, queryParam ? [queryParam] : []),
+      fetchNewsAPI(isNewsAPIEnabled, queryParam ? [queryParam] : []),
+      fetchRSSNews(rssActiveSources), // RSS는 현재 검색어 필터링을 직접 지원하지 않음
     ]);
 
     allNews.push(...naverResult.news);
@@ -548,8 +566,19 @@ export async function GET(request: NextRequest) {
     // 날짜순 정렬 (최신순)
     uniqueNews.sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime())
 
+    // 검색어가 있다면 필터링 추가 (RSS는 제외)
+    // RSS 피드는 자체 검색 기능을 제공하지 않으므로, 가져온 후 필터링
+    const filteredByQueryNews = queryParam
+      ? uniqueNews.filter(
+          (article) =>
+            article.title.toLowerCase().includes(queryParam.toLowerCase()) ||
+            article.description.toLowerCase().includes(queryParam.toLowerCase()) ||
+            (article.relatedCompanies && article.relatedCompanies.some(company => company.toLowerCase().includes(queryParam.toLowerCase())))
+        )
+      : uniqueNews;
+
     // 최대 30개 기사로 제한
-    const limitedNews = uniqueNews.slice(0, 30)
+    const limitedNews = filteredByQueryNews.slice(0, 30)
 
     console.log(`✅ Returning ${limitedNews.length} real news articles. Total errors: ${allErrors.length}`);
 
@@ -574,6 +603,9 @@ export async function GET(request: NextRequest) {
     if (failedSources.length > 0 && !warningMessage) { // 에러 메시지가 없는데 실패 소스만 있다면 경고 추가
         warningMessage = `${failedSources.join(", ")}에서 뉴스를 가져오지 못했습니다.`;
     }
+
+    // 요청된 지연 시간 (3초)
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
     return NextResponse.json({
       success: limitedNews.length > 0, // 뉴스가 하나라도 있으면 성공

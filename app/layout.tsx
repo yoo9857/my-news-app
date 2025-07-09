@@ -1,36 +1,33 @@
-import type { Metadata } from 'next';
-import Script from 'next/script'; // 👈 애드센스 스크립트를 위해 추가
-import './globals.css';
+import './globals.css'; // 전역 스타일 임포트
+import { Inter } from 'next/font/google';
+import { ThemeProvider } from '@/components/theme-provider'; // ThemeProvider 임포트
+import { Toaster } from "@/components/ui/toaster"; // Toaster 컴포넌트 임포트
 
-// 이 metadata 부분은 잘 작성하셨으니 그대로 둡니다.
-export const metadata: Metadata = {
-  title: '나만의 뉴스 앱',
-  description: '매일 업데이트되는 최신 뉴스를 만나보세요.',
-  openGraph: {
-    title: '나만의 뉴스 앱',
-    description: '매일 업데이트되는 최신 뉴스를 만나보세요.',
-    images: ['/placeholder-logo.png'],
-  },
-  generator: 'v0.dev',
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata = {
+  title: '대한민국 투자 플랫폼',
+  description: 'AI 기반 한국 주식 시장 분석 및 투자 관리 플랫폼',
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en">
-      <head>
-        {/* 👇 여기에 애드센스 스크립트 코드를 추가 */}
-        <Script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9021429421997169"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
-      </head>
-      <body>{children}</body>
+    <html lang="ko" suppressHydrationWarning>
+      <body className={`${inter.className} antialiased bg-[#0F172A] text-gray-100`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark" // 기본 다크 모드 설정
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+          <Toaster /> {/* 토스트 알림을 위한 Toaster 컴포넌트 추가 */}
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

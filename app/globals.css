@@ -1,6 +1,36 @@
+/* app/globals.css */
+
+/* Tailwind CSS base, components, and utilities */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Hide spin buttons for number inputs */
+/* For Webkit browsers (Chrome, Safari, Edge) */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* For Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Hide scrollbar for the entire page (visual hiding, scroll functionality remains) */
+html, body {
+  overflow-x: hidden; /* 가로 스크롤바 숨김 (수평 오버플로우 방지) */
+  overflow-y: auto;   /* 세로 스크롤바는 필요할 때만 표시 */
+  /* 스크롤바 자체를 숨기려면 (콘텐츠 스크롤은 가능) */
+  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* For Webkit browsers (Chrome, Safari) */
+html::-webkit-scrollbar, body::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
 
 @layer base {
   :root {
@@ -84,14 +114,15 @@
   }
 }
 
-/* 스크롤바 숨기기 */
+/* 스크롤바 숨기기 (재확인: 이 클래스는 특정 요소에 적용될 때 사용) */
+/* html, body에 직접 적용된 규칙이 더 넓은 범위를 가집니다. */
 .hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none;    /* Firefox */
 }
 
 .hide-scrollbar::-webkit-scrollbar {
-  display: none;
+  display: none; /* Chrome, Safari */
 }
 
 /* 카드 호버 효과 */
