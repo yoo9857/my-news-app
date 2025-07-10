@@ -1,284 +1,194 @@
 import sys
+import threading
+import time
+import uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QAxContainer import QAxWidget
 from PyQt5.QtCore import QEventLoop
-import socketio
-import threading
-import time
-import os
 
-# --- Socket.IO 클라이언트 설정 ---
-sio = socketio.Client()
+# --- FastAPI 앱 생성 ---
+app = FastAPI()
+
+# --- CORS 미들웨어 설정 ---
+# Next.js 개발 서버 및 ngrok 배포 주소로부터의 요청을 허용합니다.
+origins = [
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+    # Add your ngrok URL or future deployment URL here
+    # e.g., "https://<your-random-string>.ngrok-free.app"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_origin_regex=r'https://.*\.ngrok-free\.app', # Allows any ngrok subdomain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # --- 키움 API 클래스 ---
-kiwoom_api_instance = None
-
 class KiwoomAPI:
     def __init__(self):
         self.ocx = QAxWidget("KHOPENAPI.KHOpenAPICtrl.1")
         self.ocx.OnEventConnect.connect(self.login_event)
         self.ocx.OnReceiveTrData.connect(self.receive_tr_data)
-        self.ocx.OnReceiveRealData.connect(self.receive_real_data)
-
-        self.opt10001_event_loop = QEventLoop()
-        self.opt10001_data = None
+        
+        self.login_event_loop = QEventLoop()
+        self.tr_event_loop = QEventLoop()
+        
+        self.tr_data = None
         self.is_connected = False
         self.all_companies_data = []
+        self.current_rqname = "" # 어떤 TR 요청인지 추적하기 위한 변수
 
     def login(self):
         ret = self.ocx.dynamicCall("CommConnect()")
-        if ret == 0: print("로그인 요청 성공")
-        else: print("로그인 요청 실패")
+        if ret == 0:
+            print("로그인 요청 성공")
+            self.login_event_loop.exec_()
+        else:
+            print("로그인 요청 실패")
 
     def login_event(self, err_code):
         if err_code == 0:
             print("로그인 성공")
             self.is_connected = True
-            
-            # Test GetMasterCodeName immediately after login
-            test_code_after_login = "005930" # Samsung Electronics
-            test_name_after_login = self.ocx.dynamicCall("GetMasterCodeName(QString)", test_code_after_login)
-            print(f"Debug: Test GetMasterCodeName after login for {test_code_after_login}: '{test_name_after_login}'")
-
-            self.get_and_send_all_themes()
-            self.register_real_data_for_major_stocks()
         else:
             print(f"로그인 실패: {err_code}")
+        self.login_event_loop.exit()
 
-    def get_and_send_all_themes(self):
-        print("테마 및 기업 목록 가져오기를 시작합니다...")
-        self.all_companies_data = []
-        theme_list = self.get_theme_group_list()
+    def receive_tr_data(self, screen_no, rqname, trcode, record_name, next_key):
+        # 현재 대기중인 TR 요청과 동일한 응답일 때만 처리
+        if rqname == self.current_rqname:
+            print(f" 올바른 TR 데이터 수신: {rqname}")
+            if rqname == "주식기본정보요청":
+                name = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "종목명").strip()
+                marketCap = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "시가총액").strip()
+                per = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "PER").strip()
+                currentPrice_raw = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "현재가").strip()
+                currentPrice = str(abs(int(currentPrice_raw))) if currentPrice_raw and currentPrice_raw.replace('-', '').isdigit() else "0"
+                
+                self.tr_data = {
+                    "name": name,
+                    "marketCap": marketCap,
+                    "per": per,
+                    "currentPrice": currentPrice,
+                }
+            
+            # 데이터 처리가 끝났으므로 이벤트 루프 종료
+            self.tr_event_loop.exit()
+
+    def get_stock_basic_info(self, stock_code):
+        self.tr_data = None
+        self.current_rqname = "주식기본정보요청" # 요청 이름 설정
+        self.ocx.dynamicCall("SetInputValue(QString, QString)", "종목코드", stock_code)
+        ret = self.ocx.dynamicCall("CommRqData(QString, QString, int, QString)", self.current_rqname, "OPT10001", 0, "0101")
         
-        # Test GetMasterCodeName with a known stock code
-        test_code = "005930" # Samsung Electronics
-        test_name = self.ocx.dynamicCall("GetMasterCodeName(QString)", test_code)
-        print(f"Debug: Test GetMasterCodeName for {test_code}: '{test_name}'")
+        if ret != 0:
+            print(f"CommRqData for {stock_code} failed. ret: {ret}")
+            return None
 
-        # theme_list = theme_list[:5] # Removed to get all themes
+        self.tr_event_loop.exec_() # 이벤트 루프 실행
+        return self.tr_data
 
-        for theme_code, theme_name in theme_list:
-            time.sleep(1.0)
-            print(f"테마 '{theme_name}'의 종목들을 가져오는 중...")
-            stock_codes_in_theme = self.get_theme_group_code(theme_code)
+    def get_theme_group_list(self):
+        themes_raw = self.ocx.dynamicCall("GetThemeGroupList(int)", 1)
+        themes_split = themes_raw.split(';')
+        return [{"theme_code": themes_split[i], "theme_name": themes_split[i+1]} for i in range(0, len(themes_split) - 1, 2)]
 
-            if not stock_codes_in_theme: # 종목 코드가 없으면 다음 테마로 건너뛰기
-                print(f"테마 '{theme_name}'에 해당하는 종���이 없습니다. 건너킵니다.")
-                continue
+    def get_theme_group_code(self, theme_code):
+        """특정 테마에 속한 종목 코드 목록 반환 (API 직접 호출)"""
+        # theme_code 형식: "140|2차전지_완제품" -> "140"만 추출
+        numeric_theme_code = theme_code.split('|')[0]
+        stock_codes_str = self.ocx.dynamicCall("GetThemeGroupCode(QString)", numeric_theme_code)
+        if stock_codes_str:
+            return [code.strip() for code in stock_codes_str.split(';') if code.strip()]
+        return []
 
-            # Use a set to track unique stock codes across all themes to avoid duplicates
-            # This set should be initialized once per data collection cycle, not per theme.
-            # For now, we'll keep it here and ensure the check is done before appending.
+    def load_all_company_data(self):
+        """서버 시작 시 모든 기업 정보를 미리 로드하여 캐싱합니다."""
+        print("모든 기업 정보 로딩을 시작합니다...")
+        if not self.is_connected:
+            print("API가 연결되지 않아 데이터를 로드할 수 없습니다.")
+            return
 
-            for code in stock_codes_in_theme:
-                # Check if the stock code has already been added to all_companies_data
+        themes = self.get_theme_group_list()
+        
+        # 여기 숫자를 조절하여 가져올 테마 수를 제한할 수 있습니다.
+        # 전체를 가져오려면 [:5] 부분을 삭제하세요.
+        for theme in themes[:10]: # 테스트를 위해 10개 테마로 제한
+            theme_code = theme["theme_code"]
+            theme_name = theme["theme_name"]
+            print(f"Processing theme: {theme_name}")
+            
+            stock_codes = self.get_theme_group_code(theme_code)
+            time.sleep(0.4) # TR 요청 간 딜레이 (0.2초 이상 권장)
+
+            for code in stock_codes:
+                # 중복 추가 방지
                 if any(company['stockCode'] == code for company in self.all_companies_data):
-                    print(f"종목코드 {code}는 이미 수집된 정보입니다. 건너뜁니다.")
                     continue
 
-                print(f"종목코드 {code}에 대한 상세 정보 가져오는 중...")
+                print(f"  - Fetching info for stock: {code}")
                 stock_info = self.get_stock_basic_info(code)
+                time.sleep(0.4) # TR 요청 간 딜레이
                 
                 if stock_info:
                     self.all_companies_data.append({
                         "theme": theme_name,
-                        "name": stock_info.get("name", code),
                         "stockCode": code,
-                        "reason": "",
-                        "bull": "",
-                        "bear": "",
-                        "marketCap": stock_info.get("marketCap", ""),
-                        "per": stock_info.get("per", ""),
-                        "currentPrice": stock_info.get("currentPrice", ""),
-                        "openingPrice": stock_info.get("openingPrice", ""),
-                        "highPrice": stock_info.get("highPrice", ""),
-                        "lowPrice": stock_info.get("lowPrice", ""),
-                        "change": stock_info.get("change", ""),
-                        "changeRate": stock_info.get("changeRate", ""),
-                        "marketCapRank": "",
+                        **stock_info
                     })
-                else:
-                    print(f"종목코드 {code}에 대한 상세 정보를 가져오지 못했습니다. 종목코드만 추가합니다.")
-                    self.all_companies_data.append({
-                        "theme": theme_name,
-                        "name": code,
-                        "stockCode": code,
-                        "reason": "",
-                        "bull": "",
-                        "bear": "",
-                        "marketCap": "", "marketCapRank": "", "per": "", "currentPrice": "",
-                        "openingPrice": "", "highPrice": "", "lowPrice": "", "change": "", "changeRate": "",
-                    })
-                time.sleep(0.5)
         
-        print(f"총 {len(self.all_companies_data)}개의 기업 정보 수집 완료.")
-        # The duplicate check is now handled before appending, so this warning should ideally not appear.
-        # However, keeping it for verification.
-        unique_stock_codes = set(company['stockCode'] for company in self.all_companies_data)
-        print(f"Debug: Unique stock codes in all_companies_data: {len(unique_stock_codes)}")
-        if len(self.all_companies_data) != len(unique_stock_codes):
-            print("Warning: all_companies_data still contains duplicate stock codes after filtering!")
-            # Further debug: print duplicate codes if any
-            from collections import Counter
-            all_codes = [company['stockCode'] for company in self.all_companies_data]
-            duplicates = [code for code, count in Counter(all_codes).items() if count > 1]
-            print(f"Debug: Duplicate codes found: {duplicates}")
+        print(f"총 {len(self.all_companies_data)}개의 ��업 정보 로딩 완료!")
 
-        if sio.connected:
-            sio.emit('update_company_list', self.all_companies_data)
-            print("수집 완료 후 즉시 기업 목록을 전송했습니다.")
 
-    def get_theme_group_list(self):
-        print("Debug: Calling GetThemeGroupList...") # New debug print
-        themes_raw = self.ocx.dynamicCall("GetThemeGroupList(int)", 1)
-        print("Debug: GetThemeGroupList call returned.") # New debug print
-        print(f"Debug: Raw themes from GetThemeGroupList: '{themes_raw}'")
-        themes_split = themes_raw.split(';')
-        print(f"Debug: Split themes: {themes_split}")
-        return [(themes_split[i], themes_split[i+1]) for i in range(0, len(themes_split) - 1, 2)]
+# --- 전역 키움 API 인스턴스 ---
+kiwoom_api_instance = None
 
-    def get_theme_group_code(self, theme_code):
-        numeric_theme_code = theme_code.split('|')[0]
-        # GetThemeGroupCode는 TR이 아닌 직접 호출 함수입니다.
-        stock_codes_str = self.ocx.dynamicCall("GetThemeGroupCode(QString)", numeric_theme_code)
-        print(f"Debug: Raw stock_codes_str from GetThemeGroupCode: '{stock_codes_str}'")
-        print(f"Debug: Type of stock_codes_str: {type(stock_codes_str)}") # New debug print for type
-        if stock_codes_str:
-            # Ensure it's a string and remove any leading/trailing whitespace
-            cleaned_str = str(stock_codes_str).strip()
-            # 반환된 문자열은 세미콜론으로 구분된 종목 코드들입니다.
-            codes = [code.strip() for code in cleaned_str.split(';') if code.strip()]
-            return codes
-        return []
+# --- FastAPI 엔드포인트 정의 ---
+@app.get("/")
+def read_root():
+    return {"message": "Kiwoom API Gateway is running."}
 
-    def receive_tr_data(self, screen_no, rqname, trcode, record_name, next, unused1, unused2, unused3, unused4):
-        print(f"receive_tr_data 호출됨 - screen_no: {screen_no}, rqname: {rqname}, trcode: {trcode}, record_name: {record_name}, next: {next}")
-        # '테마종목조회' 관련 로직은 get_theme_group_code에서 직접 처리하므로 여기서는 제거합니다.
-        # 다른 TR 데이터 처리가 필요한 경우 여기에 추가합니다.
-        if rqname == "주식기본정보요청": # OPT10001
-            print(f"Debug: Attempting to extract data for {rqname}...")
-            name = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "종목명").strip()
-            marketCap = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "시가총액").strip()
-            per = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "PER").strip()
-            currentPrice = str(abs(int(self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "현재가").strip())))
-            openingPrice = str(abs(int(self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "시가").strip())))
-            highPrice = str(abs(int(self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "고가").strip())))
-            lowPrice = str(abs(int(self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "저가").strip())))
-            change = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "전일대비").strip()
-            changeRate = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "등락율").strip()
+@app.get("/api/all-companies")
+def get_all_companies():
+    """미리 캐싱된 모든 기업 정보를 반환합니다."""
+    if kiwoom_api_instance and kiwoom_api_instance.is_connected:
+        if not kiwoom_api_instance.all_companies_data:
+            return {"success": True, "data": [], "message": "Data is still being loaded. Please try again in a moment."}
+        return {"success": True, "data": kiwoom_api_instance.all_companies_data}
+    return {"success": False, "error": "Kiwoom API is not connected."}
 
-            print(f"Debug: GetCommData - 종목명: '{name}'")
-            print(f"Debug: GetCommData - 시가총액: '{marketCap}'")
-            print(f"Debug: GetCommData - PER: '{per}'")
-            print(f"Debug: GetCommData - 현재가: '{currentPrice}'")
-            print(f"Debug: GetCommData - 시가: '{openingPrice}'")
-            print(f"Debug: GetCommData - 고가: '{highPrice}'")
-            print(f"Debug: GetCommData - 저가: '{lowPrice}'")
-            print(f"Debug: GetCommData - 전일대비: '{change}'")
-            print(f"Debug: GetCommData - 등락율: '{changeRate}'")
 
-            stock_info = {
-                "name": name,
-                "marketCap": marketCap,
-                "per": per,
-                "currentPrice": currentPrice,
-                "openingPrice": openingPrice,
-                "highPrice": highPrice,
-                "lowPrice": lowPrice,
-                "change": change,
-                "changeRate": changeRate,
-            }
-            self.opt10001_data = stock_info
-            print(f"Debug: OPT10001 data received for {rqname}: {self.opt10001_data}")
-            self.opt10001_event_loop.exit()
-        pass # Placeholder for other TR data handling if needed
-
-    def get_stock_basic_info(self, stock_code):
-        self.opt10001_data = None # Clear previous data
-        self.ocx.dynamicCall("SetInputValue(QString, QString)", "종목코드", stock_code)
-        ret = self.ocx.dynamicCall("CommRqData(QString, QString, int, QString)", "주식기본정보요청", "OPT10001", 0, "0101") # Screen No. 0101 for OPT10001
-        print(f"Debug: CommRqData for OPT10001 returned: {ret}") # New debug print
-        if ret == 0:
-            self.opt10001_event_loop.exec_()
-            return self.opt10001_data
-        return None
-
-    def register_real_data_for_major_stocks(self):
-        major_stocks = {'005930': '삼성전자', '000660': 'SK하이닉스', '035420': 'NAVER'}
-        success_count = 0
-        fail_count = 0
-        for code, name in major_stocks.items():
-            try:
-                # SetRealReg returns 0 on success, other values on failure
-                ret = self.ocx.dynamicCall("SetRealReg(QString, QString, QString, QString)", "1000", code, "9001;10;11;12", "0")
-                if ret == 0:
-                    print(f"실시간 데이터 등록 성공: {name} ({code})")
-                    success_count += 1
-                else:
-                    print(f"실시간 데이터 등록 실패: {name} ({code}), 반환 코드: {ret}")
-                    fail_count += 1
-            except Exception as e:
-                print(f"실시간 데이터 등록 중 예외 발생: {name} ({code}), 오류: {e}")
-                fail_count += 1
-        print(f"주요 종목 실시간 데이터 등록 완료: 성공 {success_count}개, 실패 {fail_count}개")
-
-    def receive_real_data(self, code, real_type, real_data):
-        print(f"⭐️ 실시간 데이터 수신! 종목코드: {code}, 타입: {real_type}") # ⭐️ 디버깅 라인
-        current_price = abs(int(self.ocx.dynamicCall("GetCommRealData(QString, int)", code, 10)))
-        change = int(self.ocx.dynamicCall("GetCommRealData(QString, int)", code, 11))
-        change_rate = float(self.ocx.dynamicCall("GetCommRealData(QString, int)", code, 12))
-        
-        stock_info = {
-            'code': code,
-            'name': self.ocx.dynamicCall("GetMasterCodeName(QString)", code),
-            'current_price': current_price,
-            'change': change,
-            'change_rate': change_rate,
-            'status': 'positive' if change > 0 else 'negative' if change < 0 else 'neutral'
-        }
-        print(f"⭐️ 전송할 실시간 정보: {stock_info}") # ⭐️ 디버깅 라인
-        if sio.connected:
-            sio.emit('real_kiwoom_data', stock_info)
-
-# --- Socket.IO 이벤트 핸들러 ---
-@sio.event
-def connect():
-    print('키움 게이트웨이가 Next.js 백엔드에 연결되었습니다.')
-    if kiwoom_api_instance and kiwoom_api_instance.all_companies_data:
-        print(f"'{ 'update_company_list'}' 이벤트로 {len(kiwoom_api_instance.all_companies_data)}개 기업 정보 전송 중...")
-        sio.emit('update_company_list', kiwoom_api_instance.all_companies_data)
-        print("전송 완료.")
-
-@sio.event
-def disconnect():
-    print('키움 게이트웨이가 Next.js 백엔드에서 연결 해제되었습니다.')
-
-# --- 백그라운드에서 Socket.IO 연결을 관리하는 함수 ---
-def run_socketio_client():
-    # 환경 변수에서 서버 URL을 가져오고, 없으면 기본값으로 localhost를 사용합니다.
-    NEXTJS_BASE_URL = os.getenv('NEXTJS_SERVER_URL', 'http://localhost:3001')
-    SOCKET_IO_PATH = 'api/my_socket'
-    
-    while True:
-        try:
-            if not sio.connected:
-                print(f"Next.js 백엔드({NEXTJS_BASE_URL})에 연결을 시도합니다...")
-                sio.connect(NEXTJS_BASE_URL, socketio_path=SOCKET_IO_PATH)
-        except socketio.exceptions.ConnectionError as e:
-            print(f"연결 오류: {e}. 5초 후 재시도합니다.")
-            time.sleep(5)
-        except Exception as e:
-            print(f"알 수 없는 오류 발생: {e}. 5초 후 재시도합니다.")
-            time.sleep(5)
+# --- FastAPI 서버 실행 함수 (별도 스레드에서 실행) ---
+def run_fastapi_server():
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 # --- 메인 실행 로직 ---
 if __name__ == '__main__':
-    socket_thread = threading.Thread(target=run_socketio_client)
-    socket_thread.daemon = True
-    socket_thread.start()
+    # 1. FastAPI 서버를 백그라운드 스레드에서 시작
+    fastapi_thread = threading.Thread(target=run_fastapi_server)
+    fastapi_thread.daemon = True
+    fastapi_thread.start()
 
+    # 2. 메인 스레드에서 PyQt 애플리케이션 및 키움 API 실행
     app_qt = QApplication(sys.argv)
     kiwoom_api_instance = KiwoomAPI()
     kiwoom_api_instance.login()
     
-    app_qt.exec_()
+    if kiwoom_api_instance.is_connected:
+        print("키움 API 연결 성공. FastAPI 서버가 8000번 포트에서 실행 중입니다.")
+        # 로그인 성공 후, 백그라운드에서 데이터 로딩 시작
+        data_load_thread = threading.Thread(target=kiwoom_api_instance.load_all_company_data)
+        data_load_thread.daemon = True
+        data_load_thread.start()
+    else:
+        print("키움 API 연결 실패. 서버를 종료합니다.")
+        sys.exit()
+
+    sys.exit(app_qt.exec_())
+
