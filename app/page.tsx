@@ -56,7 +56,11 @@ export default function KoreanStockPlatform() {
       try {
         const requestUrl = `${KIWOOM_API_BASE_URL}/api/all-companies`;
         console.log("Fetching initial stock data from:", requestUrl); // 요청 URL 로깅
-        const response = await fetch(requestUrl);
+        const response = await fetch(requestUrl, {
+          headers: {
+            'ngrok-skip-browser-warning': 'true'
+          }
+        });
         console.log("Response URL:", response.url); // 실제 응답받은 URL 로깅
         console.log("Response Status:", response.status); // 응답 상태 코드 로깅
         if (response.ok) {

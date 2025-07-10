@@ -191,34 +191,48 @@ class KiwoomAPI:
     async def load_all_company_data(self):
         print("모든 기업 정보 로딩을 시작합니다...")
         if not self.is_connected:
-            print("API가 연결되지 않아 데이터를 로드할 수 없습니다.")
+            print("API가 연결되지 않아 데이터를 로드할 수 없습니다. (is_connected=False)")
             return
         try:
             themes = self.get_theme_group_list()
-            for theme in themes[:10]:
+            print(f"가져온 테마 수: {len(themes)} (테마 목록: {themes})")
+            if not themes:
+                print("테마 목록이 비어 있습니다. 데이터 로딩 중단.")
+                return
+
+            for theme in themes:
                 try:
                     theme_code = theme["theme_code"]
                     theme_name = theme["theme_name"]
                     print(f"Processing theme: {theme_name} ({theme_code})")
                     
                     stock_codes = self.get_theme_group_code(theme_code)
+                    print(f"  - 테마 {theme_name} ({theme_code})의 종목 코드 수: {len(stock_codes)} (종목 코드: {stock_codes})")
+                    if not stock_codes:
+                        print(f"  - 테마 {theme_name}에 종목 코드가 없습니다. 다음 테마로 이동.")
+                        continue
+
                     await asyncio.sleep(0.4) # TR 요청 간 딜레이 (0.2초 이상 권장)
 
                     for code in stock_codes:
                         try:
                             if any(company['stockCode'] == code for company in self.all_companies_data):
+                                # print(f"  - 종목 {code}는 이미 로드되었습니다. 건너뜁니다.")
                                 continue
 
                             print(f"  - Fetching info for stock: {code}")
                             stock_info = self.get_stock_basic_info(code)
-                            await asyncio.sleep(0.4)
-                            
                             if stock_info:
+                                print(f"  - 종목 {code} 정보 성공적으로 가져옴: {stock_info}")
                                 self.all_companies_data.append({
                                     "theme": theme_name,
                                     "stockCode": code,
                                     **stock_info
                                 })
+                            else:
+                                print(f"  - 종목 {code} 정보 가져오기 실패 또는 데이터 없음. (stock_info: {stock_info})")
+                            await asyncio.sleep(0.4)
+                            
                         except Exception as e:
                             print(f"Error processing stock {code} in theme {theme_name}: {e}")
                             continue
