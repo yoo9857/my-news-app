@@ -369,6 +369,12 @@ def run_fastapi_server():
     async def startup_event():
         asyncio.create_task(real_data_broadcaster())
         print("Real-time data broadcaster started.")
+        
+        # 키움 API 연결이 완료될 때까지 기다립니다.
+        while not kiwoom_api_instance.is_connected:
+            await asyncio.sleep(0.1) # 0.1초마다 확인
+        
+        # 모든 기업 정보 로딩을 비동기로 시작
         asyncio.create_task(kiwoom_api_instance.load_all_company_data())
     
     # 명시적으로 생성한 이벤트 루프를 Uvicorn에 전달합니다.
@@ -388,7 +394,7 @@ if __name__ == '__main__':
     kiwoom_api_instance.login()
     
     if kiwoom_api_instance.is_connected:
-        print("키움 API 연결 성공. FastAPI 서버가 8001번 포트에서 실행 중입니다.")
+        print("키움 API 연결 성공. FastAPI 서버가 8000번 포트에서 실행 중입니다.")
         # load_all_company_data는 이제 startup 이벤트에서 비동기로 호출됩니다.
     else:
         print("키움 API 연결 실패. 서버를 종료합니다.")
