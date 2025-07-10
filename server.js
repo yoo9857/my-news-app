@@ -48,10 +48,12 @@ app.prepare().then(() => {
   io.on('connection', socket => {
     console.log('Socket.IO 클라이언트 연결됨:', socket.id);
 
-    // ⭐️ 파이썬으로부터 'update_company_list' 이벤트를 받으면 캐시를 업데이트합니다.
+    // ⭐️ 파이썬으로부터 'update_company_list' 이벤트를 받으면 캐시를 업데이트하고 클라이언트에 알립니다.
     socket.on('update_company_list', (data) => {
       console.log(`파이썬으로부터 ${data.length}개의 기업 데이터를 받아 캐시를 업데이트합니다.`);
       companyDataCache = data;
+      // ⭐️ 모든 연결된 클라이언트에게 데이터가 업데이트되었음을 알립니다.
+      io.emit('companies_updated');
     });
     
     // 실시간 시세 데이터 처리

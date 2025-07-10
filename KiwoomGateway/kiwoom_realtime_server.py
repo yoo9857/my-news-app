@@ -5,6 +5,7 @@ from PyQt5.QtCore import QEventLoop
 import socketio
 import threading
 import time
+import os
 
 # --- Socket.IO 클라이언트 설정 ---
 sio = socketio.Client()
@@ -62,7 +63,7 @@ class KiwoomAPI:
             stock_codes_in_theme = self.get_theme_group_code(theme_code)
 
             if not stock_codes_in_theme: # 종목 코드가 없으면 다음 테마로 건너뛰기
-                print(f"테마 '{theme_name}'에 해당하는 종목이 없습니다. 건너킵니다.")
+                print(f"테마 '{theme_name}'에 해당하는 종���이 없습니다. 건너킵니다.")
                 continue
 
             # Use a set to track unique stock codes across all themes to avoid duplicates
@@ -254,7 +255,8 @@ def disconnect():
 
 # --- 백그라운드에서 Socket.IO 연결을 관리하는 함수 ---
 def run_socketio_client():
-    NEXTJS_BASE_URL = 'http://localhost:3001'
+    # 환경 변수에서 서버 URL을 가져오고, 없으면 기본값으로 localhost를 사용합니다.
+    NEXTJS_BASE_URL = os.getenv('NEXTJS_SERVER_URL', 'http://localhost:3001')
     SOCKET_IO_PATH = 'api/my_socket'
     
     while True:

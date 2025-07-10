@@ -41,48 +41,74 @@ export default function KoreanStockPlatform() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 테마 및 기업 데이터 로드
-  useEffect(() => {
-    const fetchCompanyData = async () => {
-      try {
-        setIsLoading(true);
-        // server.js에 정의된 /api/companies 엔드포인트를 사용합니다.
-        const response = await fetch('/api/companies');
-        if (!response.ok) {
-          throw new Error('Failed to fetch company data from /api/companies');
-        }
-        const result = await response.json();
-        if (result.success) {
-          setCompanyData(result.companies);
-          // 테마 목록은 받아온 기업 데이터에서 동적으로 추출합니다.
-          const extractedThemes = ["전체", ...Array.from(new Set(result.companies.map((c: any) => c.theme)))];
-          setThemes(extractedThemes as string[]);
-        } else {
-          throw new Error(result.error || 'Failed to process company data');
-        }
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
+  // 데이터 로드 함수
+  const fetchCompanyData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await fetch('/api/companies');
+      if (!response.ok) {
+        throw new Error(`서버 응답 오류: ${response.status}`);
       }
-    };
-    fetchCompanyData();
-  }, []);
+      const result = await response.json();
+      if (result.success) {
+        if (result.companies.length === 0) {
+          console.log("서버로부터 빈 기업 목록을 받았습니다. 데이터 수집 대기 중일 수 있습니다.");
+          // 데이터를 아직 못 받았을 경우, 로딩 상태를 유지하거나 사용자에게 메시지를 표시할 수 있습니다.
+          // 여기서는 일단 로딩 상태를 잠시 후 false로 바꿉니다.
+        } else {
+          setCompanyData(result.companies);
+          const extractedThemes = ["전체", ...Array.from(new Set(result.companies.map((c: any) => c.theme).filter(Boolean)))];
+          setThemes(extractedThemes as string[]);
+        }
+      } else {
+        throw new Error(result.error || '기업 정보 처리 실패');
+      }
+    } catch (err: any) {
+      console.error("기업 정보 로드 실패:", err);
+      setError(`기업 정보를 불러오는 데 실패했습니다. (${err.message})`);
+    } finally {
+      // 데이터가 없더라도 로딩 상태는 해제합니다.
+      // 서버가 데이터를 보내줄 때 다시 로드될 것입니다.
+      setIsLoading(false);
+    }
+  };
 
-  // 실시간 소켓 통신
+  // 실시간 소켓 통신 및 데이터 로드 트리거
   useEffect(() => {
+    // 초기 데이터 로드 시도
+    fetchCompanyData();
+
     const socket: Socket = io({
       path: '/api/my_socket',
       addTrailingSlash: false,
-      pingInterval: 10000, // 10 seconds
-      pingTimeout: 5000,   // 5 seconds
-    } as Partial<ManagerOptions & SocketOptions>); // Explicitly cast
-    socket.on('connect', () => setIsConnected(true));
-    socket.on('disconnect', () => setIsConnected(false));
+    });
+
+    socket.on('connect', () => {
+      console.log("소켓 연결 성공. 데이터를 요청합니다.");
+      setIsConnected(true);
+      // 연결 성공 시 데이터를 다시 한번 요청
+      fetchCompanyData();
+    });
+
+    socket.on('disconnect', () => {
+      setIsConnected(false);
+      console.log("소켓 연결 끊김.");
+    });
+
     socket.on('real_kiwoom_data', (data: StockData) => {
       setStockData(prevData => ({ ...prevData, [data.code]: data }));
     });
-    return () => { socket.disconnect(); };
+
+    // 서버에서 기업 목록이 업데이트되었다는 신호를 받으면 데이터를 다시 로드
+    socket.on('companies_updated', () => {
+      console.log("서버로부터 기업 목록 업데이트 신호를 받았습니다. 데이터를 새로고침합니다.");
+      fetchCompanyData();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   // 탭 스크롤 로직
