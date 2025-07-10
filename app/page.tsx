@@ -70,21 +70,20 @@ export default function KoreanStockPlatform() {
 
       if (result.success && result.data) {
         // 데이터를 받았지만 비어있고, 재시도 횟수가 남아있다면 5초 후 다시 시도
-        if (result.data.length === 0 && retryCount <= 30) {
+        if (result.data.length === 0 && retryCount < 3) { // Reduced retry count for quicker feedback
           console.log(`데이터가 아직 준비되지 않았습니다. 5초 후 다시 시도합니다... (시도 횟수: ${retryCount + 1})`);
           setTimeout(() => fetchCompanyData(retryCount + 1), 5000);
           return; // 여기서 함수를 종료하고 다음 재시도를 기다림
         }
         
-        if (result.data.length > 0) {
-            setCompanyData(result.data);
-            const extractedThemes = ["전체", ...Array.from(new Set(result.data.map((c: any) => c.theme).filter(Boolean)))];
-            setThemes(extractedThemes as string[]);
-            setIsLoading(false); // 데이터 로딩 성공 시 로딩 상태 해제
-        } else {
-            // 재시도를 모두 소진했는데도 데이터가 없는 경우
+        setCompanyData(result.data);
+        const extractedThemes = ["전체", ...Array.from(new Set(result.data.map((c: any) => c.theme).filter(Boolean)))];
+        setThemes(extractedThemes as string[]);
+        setIsLoading(false); // 데이터 로딩 성공 시 로딩 상태 해제
+        if (result.data.length === 0) {
             setError("데이터를 가져왔지만, 기업 목록이 비어있습니다.");
-            setIsLoading(false);
+        } else {
+            setError(null); // Clear any previous errors if data is now available
         }
 
       } else {
