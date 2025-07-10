@@ -52,6 +52,8 @@ interface CompanyExplorerProps {
 }
 
 export default function CompanyExplorer({ stockData, isConnected, websocket, fetchError, kiwoomApiBaseUrl }: CompanyExplorerProps) {
+  console.log("CompanyExplorer: Received stockData", stockData); // Debugging
+  console.log("CompanyExplorer: isConnected", isConnected); // Debugging
   const [themes, setThemes] = useState<string[]>(['전체']);
   const [selectedTheme, setSelectedTheme] = useState('전체');
   const [searchTerm, setSearchTerm] = useState('');
@@ -132,6 +134,8 @@ export default function CompanyExplorer({ stockData, isConnected, websocket, fet
     }
     return currentCompanies;
   }, [stockData, selectedTheme, searchTerm]); // stockData를 의존성 배열에 추가
+
+  console.log("CompanyExplorer: Filtered companies", filteredCompanies); // Debugging
 
   const getStatusVisuals = (change: string) => {
     const changeVal = parseFloat(change);

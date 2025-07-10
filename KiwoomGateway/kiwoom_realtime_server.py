@@ -131,33 +131,47 @@ class KiwoomAPI:
 
     def receive_tr_data(self, screen_no, rqname, trcode, record_name, next_key):
         if rqname == self.current_rqname:
-            print(f" 올바른 TR 데이터 수신: {rqname}")
-            def get_numeric_data(field_name):
+            print(f"✅ 올바른 TR 데이터 수신: {rqname}")
+
+            # 데이터를 안전하게 가져오고, 비어있거나 숫자가 아니면 "0"을 반환하는 헬퍼 함수
+            def get_comm_data(field_name, is_numeric=False):
                 raw_data = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, field_name).strip()
-                return str(abs(int(raw_data))) if raw_data and raw_data.replace('-', '').isdigit() else "0"
+                if is_numeric:
+                    # 부호(+, -)를 제거하고 숫자로 변환 시도
+                    return str(abs(int(raw_data))) if raw_data and raw_data.replace('-', '').isdigit() else "0"
+                return raw_data
 
-            currentPrice = get_numeric_data("현재가")
-            highPrice = get_numeric_data("고가")
-            lowPrice = get_numeric_data("저가")
-            openingPrice = get_numeric_data("시가")
-            change = get_numeric_data("전일대비")
-            changeRate = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "등락율").strip()
-            previousClose = get_numeric_data("전일종가") # 전일종가 추가
+            # 키움 API 필드 이름을 사용하여 데이터 가져오기
+            name = get_comm_data("종목명")
+            marketCap = get_comm_data("시가총액") # 시가총액 (단위: 억)
+            per = get_comm_data("PER")
+            volume = get_comm_data("거래량", is_numeric=True)
+            currentPrice = get_comm_data("현재가", is_numeric=True)
+            highPrice = get_comm_data("고가", is_numeric=True)
+            lowPrice = get_comm_data("저가", is_numeric=True)
+            openingPrice = get_comm_data("시가", is_numeric=True)
+            change = get_comm_data("전일대비", is_numeric=True)
+            changeRate = get_comm_data("등락율")
+            previousClose = get_comm_data("전일종가", is_numeric=True)
 
+            # 가져온 데이터로 딕셔너리 생성
             self.tr_data = {
                 "name": name,
                 "marketCap": marketCap,
                 "per": per,
+                "volume": volume,
                 "currentPrice": currentPrice,
                 "highPrice": highPrice,
                 "lowPrice": lowPrice,
                 "openingPrice": openingPrice,
                 "change": change,
                 "changeRate": changeRate,
-                "previousClose": previousClose, # 전일종가 추가
+                "previousClose": previousClose,
             }
+            
+            # TR 데이터 수신 완료 이벤트 설정
             self.tr_received_event.set()
-            print(f"TR Data: {self.tr_data}")
+            print(f"   - TR Data: {self.tr_data}")
 
     def get_stock_basic_info(self, stock_code):
         self.tr_data = None
