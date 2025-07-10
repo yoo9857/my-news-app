@@ -9,6 +9,9 @@ from datetime import datetime, timedelta
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import JSONResponse
 
+# --- FastAPI 앱 생성 ---
+app = FastAPI()
+
 # 데이터 캐싱 파일 경로
 DATA_FILE_PATH = "./cached_company_data.json"
 CACHE_DURATION_HOURS = 1 # 캐시 유효 시간 (1시간)
@@ -32,9 +35,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QAxContainer import QAxWidget
 from PyQt5.QtCore import QEventLoop
-
-# --- FastAPI 앱 생성 ---
-app = FastAPI()
 
 # --- CORS 미들웨어 설정 ---
 # 허용할 출처(origin) 목록입니다.
@@ -372,7 +372,8 @@ def run_fastapi_server():
         asyncio.create_task(kiwoom_api_instance.load_all_company_data())
     
     # 명시적으로 생성한 이벤트 루프를 Uvicorn에 전달합니다.
-    uvicorn.run(app, host="0.0.0.0", port=8000, loop=loop)
+    # uvicorn.run(app, host="0.0.0.0", port=8000, loop=loop) # 기존 라인 주석 처리
+    loop.run_until_complete(uvicorn.run(app, host="0.0.0.0", port=8000))
 
 # --- 메인 실행 로직 ---
 if __name__ == '__main__':
