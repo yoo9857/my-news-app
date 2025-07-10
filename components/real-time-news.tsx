@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import io, { ManagerOptions, SocketOptions } from 'socket.io-client'; // Moved import to top
+import io from 'socket.io-client'; // Moved import to top
+import { ManagerOptions, SocketOptions } from 'socket.io-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -27,9 +28,9 @@ interface NewsItem {
   imageUrl?: string;
 }
 
-// RealTimeNews 컴포넌트의 props 타입 정의 (현재는 필요 없음)
+// RealTimeNews 컴포넌트의 props 타입 정의
 interface RealTimeNewsProps {
-  // 더 이상 사용되지 않는 prop 정의는 제거
+  setIsConnected: React.Dispatch<React.SetStateAction<boolean>>; // setIsConnected 추가
 }
 
 /**
@@ -150,7 +151,7 @@ const analyzeSentiment = (text: string): "긍정적" | "부정적" | "중립적"
 
 
 // RealTimeNews 컴포넌트 정의
-export default function RealTimeNews({}: RealTimeNewsProps) {
+export default function RealTimeNews({ setIsConnected }: RealTimeNewsProps) {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
@@ -161,6 +162,7 @@ export default function RealTimeNews({}: RealTimeNewsProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRealtime, setIsRealtime] = useState(true);
+  const [hasAttemptedInitialFetch, setHasAttemptedInitialFetch] = useState(false); // New state to track initial fetch
 
   const { toast } = useToast();
 
@@ -199,6 +201,7 @@ export default function RealTimeNews({}: RealTimeNewsProps) {
       });
     } finally {
       setLoading(false);
+      setHasAttemptedInitialFetch(true); // Set to true after attempt
     }
   }, [toast]);
 
@@ -214,35 +217,44 @@ export default function RealTimeNews({}: RealTimeNewsProps) {
     socket.on('connect', () => {
       console.log('Socket.IO connected');
       setLoading(false);
-      fallbackTimer = setTimeout(() => {
-        if (news.length === 0) {
-          fetchNewsFallback();
-        }
-      }, 5000); // 5초 후에 fallback 실행
+      setIsConnected(true); // Update global connection status
+      // Only attempt fallback if no news has been loaded yet and no initial fetch has been attempted
+      if (!hasAttemptedInitialFetch) {
+        fallbackTimer = setTimeout(() => {
+          if (news.length === 0) { // Check news.length here to avoid immediate re-fetch if news arrives quickly
+            fetchNewsFallback();
+          }
+        }, 5000); // 5초 후에 fallback 실행
+      }
     });
 
     socket.on('disconnect', () => {
       console.log('Socket.IO disconnected');
+      setIsConnected(false); // Update global connection status
     });
 
     socket.on('real_kiwoom_data', (newNewsItem: NewsItem) => {
       clearTimeout(fallbackTimer);
       setIsRealtime(true);
       setNews((prevNews) => [newNewsItem, ...prevNews]);
+      setHasAttemptedInitialFetch(true); // News received, so initial fetch is done
     });
 
     socket.on('connect_error', (err) => {
       console.error('Socket.IO connection error:', err);
       setError('실시간 서버에 연결할 수 없습니다.');
       setLoading(false);
-      fetchNewsFallback(); // 연결 실패 시 바로 fallback 실행
+      setIsConnected(false); // Update global connection status
+      if (!hasAttemptedInitialFetch) { // Only call fallback if initial fetch hasn't been attempted
+        fetchNewsFallback(); // 연결 실패 시 바로 fallback 실행
+      }
     });
 
     return () => {
       clearTimeout(fallbackTimer);
       socket.disconnect();
     };
-  }, [toast, fetchNewsFallback, news.length]);
+  }, [toast, fetchNewsFallback, hasAttemptedInitialFetch, setIsConnected]); // Added setIsConnected to dependencies
 
   const handleSourceToggle = (source: string) => {
     setSelectedSources(prev =>
