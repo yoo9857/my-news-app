@@ -14,21 +14,17 @@ from PyQt5.QtCore import QEventLoop
 app = FastAPI()
 
 # --- CORS 미들웨어 설정 ---
-origins = [
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-    "http://192.168.219.100:3001", # 추가
-    "https://onedaytrading.net",
-    "https://v0-korean-news-scraper.vercel.app",
-]
+# 허용할 출처(origin) 목록입니다.
+# 모든 출처를 허용하도록 변경 (테스트 목적)
+origins = ["*"] # 모든 출처 허용
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=r'https://.*\.vercel\.app',
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # allow_origin_regex=r'https://.*\.vercel\.app', # 이 줄은 이제 필요 없습니다.
+    allow_credentials=True, # 자격 증명(쿠키, HTTP 인증 등) 허용 여부
+    allow_methods=["*"], # 모든 HTTP 메서드 (GET, POST, OPTIONS 등) 허용
+    allow_headers=["*"], # 모든 헤더 허용
 )
 
 # --- 전역 변수 ---
