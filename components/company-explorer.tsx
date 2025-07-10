@@ -17,6 +17,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useIsMobile } from '@/hooks/use-mobile'; // Import useIsMobile hook
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"; // Import Select components
 
 // 타입 정의 (app/page.tsx와 동일하게 유지)
 interface StockInfo {
@@ -65,6 +73,8 @@ export default function CompanyExplorer({ stockData, isConnected, websocket, fet
 
   // 실시간 데이터를 저장할 상태 (app/page.tsx에서 받은 stockData를 기반으로 업데이트)
   const [realtimeStockData, setRealtimeStockData] = useState<Record<string, RealTimeStockData>>({});
+
+  const isMobile = useIsMobile(); // Use the hook to detect mobile
 
   // stockData가 변경될 때마다 테마 목록 업데이트
   useEffect(() => {
@@ -184,124 +194,227 @@ export default function CompanyExplorer({ stockData, isConnected, websocket, fet
   return (
     <React.Fragment>
       <div className="space-y-6 h-[calc(100vh-180px)]">
-        <ResizablePanelGroup direction="horizontal" className="min-h-[500px] rounded-lg border border-[#333333]">
-          <ResizablePanel defaultSize={25} minSize={15}>
-            <Card className="h-full bg-[#1a1a1a] border-none rounded-lg shadow-lg flex flex-col">
-              <CardHeader className="p-4 pb-2 border-b border-[#333333">
-                <CardTitle className="text-lg font-semibold text-white">테마 목록</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 flex-grow overflow-hidden">
-                <ScrollArea className="h-full">
-                  <div className="p-2 space-y-1">
-                    {themes.map(theme => {
-                      const displayThemeName = theme.includes('|') ? theme.split('|')[1] : theme;
+        {isMobile ? (
+          <div className="mb-4">
+            <Select onValueChange={setSelectedTheme} value={selectedTheme}>
+              <SelectTrigger className="w-full bg-[#2a2a2a] border border-[#444444] text-gray-100">
+                <SelectValue placeholder="테마 선택" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a1a] border border-[#333333] text-gray-100">
+                {themes.map(theme => (
+                  <SelectItem key={theme} value={theme}>
+                    {theme.includes('|') ? theme.split('|')[1] : theme}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+
+        {isMobile ? (
+          <Card className="h-full bg-[#1a1a1a] border-none rounded-lg shadow-lg flex flex-col">
+            <CardHeader className="p-4 pb-2 border-b border-[#333333">
+              <CardTitle className="text-lg font-semibold text-white mb-3">
+                {selectedTheme === '전체' ? '전체 기업' : `${selectedTheme.includes('|') ? selectedTheme.split('|')[1] : selectedTheme} 테마 기업`}
+              </CardTitle>
+              <Input
+                type="text"
+                placeholder="기업명, 종목코드 검색..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-[#2a2a2a] border border-[#444444] text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-md py-2"
+              />
+            </CardHeader>
+            <CardContent className="p-4 flex-grow overflow-hidden">
+              <ScrollArea className="h-full">
+                {filteredCompanies.length === 0 ? (
+                  <div className="text-center text-gray-400 py-8">
+                    <p>표시할 기업 정보가 없습니다.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {filteredCompanies.map(company => {
+                      // 실시간 데이터가 있으면 사용, 없으면 초기 company 데이터 사용
+                      const currentPrice = realtimeStockData[company.stockCode]?.currentPrice || company.currentPrice;
+                      const change = realtimeStockData[company.stockCode]?.change || company.change;
+                      const changeRate = realtimeStockData[company.stockCode]?.changeRate || company.changeRate;
+
+                      const visuals = getStatusVisuals(change || '0');
+                      const changeRateColor = parseFloat(change || '0') > 0 ? 'text-red-400' : parseFloat(change || '0') < 0 ? 'text-blue-400' : 'text-gray-300';
+
                       return (
-                        <Button
-                          key={theme}
-                          variant="ghost"
-                          className={`w-full justify-start text-left text-sm font-medium transition-colors duration-200 ${
-                            selectedTheme === theme ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-gray-300 hover:bg-[#2a2a2a]'
-                          }`}
-                          onClick={() => setSelectedTheme(theme)}
-                        >
-                          {displayThemeName}
-                        </Button>
+                        <Card key={`${company.theme}-${company.stockCode}`} className="bg-[#1a1a1a] border border-[#333333] rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col overflow-hidden">
+                          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between border-b border-[#333333">
+                            <div className="flex flex-col">
+                              <Badge className="bg-blue-700 text-white px-2 py-0.5 rounded-full text-xs mb-1 self-start">
+                                {company.theme.includes('|') ? company.theme.split('|')[1] : company.theme}
+                              </Badge>
+                              <CardTitle className="text-lg font-semibold text-white leading-tight">{company.name} ({company.stockCode})</CardTitle>
+                            </div>
+                            {isConnected && currentPrice && (
+                              <div className="text-right flex-shrink-0">
+                                <p className={`text-xl font-bold ${visuals.color}`}>{parseInt(currentPrice).toLocaleString()}원</p>
+                                {change !== '0' && (
+                                  <div className={`flex items-center justify-end gap-1 text-sm ${visuals.color}`}>
+                                    {visuals.icon}
+                                    <span>{parseInt(change).toLocaleString()} ({parseFloat(changeRate || '0').toFixed(2)}%)</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </CardHeader>
+                          <CardContent className="p-4 pt-3 flex-grow flex flex-col justify-between">
+                            <div>
+                              <div className="mb-4">
+                                <h4 className="text-sm font-semibold text-gray-400 mb-2">주요 지표</h4>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-300">
+                                  <p>현재가: <span className="font-semibold text-white">{parseInt(currentPrice || '0').toLocaleString()}원</span></p>
+                                  <p>시가: <span className="font-semibold text-white">{parseInt(company.openingPrice !== '0' ? company.openingPrice : company.previousClose || '0').toLocaleString()}원</span></p>
+                                  <p>고가: <span className="font-semibold text-white">{parseInt(company.highPrice !== '0' ? company.highPrice : company.previousClose || '0').toLocaleString()}원</span></p>
+                                  <p>저가: <span className="font-semibold text-white">{parseInt(company.lowPrice !== '0' ? company.lowPrice : company.previousClose || '0').toLocaleString()}원</span></p>
+                                  <p>시가총액: <span className="font-semibold text-white">{company.marketCap && parseInt(company.marketCap) > 0 ? `${parseInt(company.marketCap).toLocaleString()}억` : 'N/A'}</span></p>
+                                  <p>PER: <span className="font-semibold text-white">{company.per && company.per !== '' ? company.per : 'N/A'}</span></p>
+                                  <p className="col-span-2">전일대비: <span className={`font-semibold ${changeRateColor}`}>{parseInt(change || '0').toLocaleString()}원 ({parseFloat(changeRate || '0').toFixed(2)}%)</span></p>
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-3 w-full bg-[#2a2a2a] border-[#444444] text-gray-100 hover:bg-[#3a3a3a]"
+                              onClick={() => handleGetGeminiInsight(company.stockCode, company.name)}
+                            >
+                              2025년 투자 모멘텀
+                            </Button>
+                          </CardContent>
+                        </Card>
                       );
                     })}
                   </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </ResizablePanel>
-
-          <ResizableHandle withHandle className="bg-[#333333] hover:bg-blue-600 transition-colors duration-200" />
-
-          <ResizablePanel defaultSize={75} minSize={50}>
-            <Card className="h-full bg-[#1a1a1a] border-none rounded-lg shadow-lg flex flex-col">
-              <CardHeader className="p-4 pb-2 border-b border-[#333333]">
-                <CardTitle className="text-lg font-semibold text-white mb-3">
-                  {selectedTheme === '전체' ? '전체 기업' : `${selectedTheme.includes('|') ? selectedTheme.split('|')[1] : selectedTheme} 테마 기업`}
-                </CardTitle>
-                <Input
-                  type="text"
-                  placeholder="기업명, 종목코드 검색..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-[#2a2a2a] border border-[#444444] text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-md py-2"
-                />
-              </CardHeader>
-              <CardContent className="p-4 flex-grow overflow-hidden">
-                <ScrollArea className="h-full">
-                  {filteredCompanies.length === 0 ? (
-                    <div className="text-center text-gray-400 py-8">
-                      <p>표시할 기업 정보가 없습니다.</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                      {filteredCompanies.map(company => {
-                        // 실시간 데이터가 있으면 사용, 없으면 초기 company 데이터 사용
-                        const currentPrice = realtimeStockData[company.stockCode]?.currentPrice || company.currentPrice;
-                        const change = realtimeStockData[company.stockCode]?.change || company.change;
-                        const changeRate = realtimeStockData[company.stockCode]?.changeRate || company.changeRate;
-
-                        const visuals = getStatusVisuals(change || '0');
-                        const changeRateColor = parseFloat(change || '0') > 0 ? 'text-red-400' : parseFloat(change || '0') < 0 ? 'text-blue-400' : 'text-gray-300';
-
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        ) : (
+          <ResizablePanelGroup direction="horizontal" className="min-h-[500px] rounded-lg border border-[#333333]">
+            <ResizablePanel defaultSize={25} minSize={15}>
+              <Card className="h-full bg-[#1a1a1a] border-none rounded-lg shadow-lg flex flex-col">
+                <CardHeader className="p-4 pb-2 border-b border-[#333333">
+                  <CardTitle className="text-lg font-semibold text-white">테마 목록</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0 flex-grow overflow-hidden">
+                  <ScrollArea className="h-full">
+                    <div className="p-2 space-y-1">
+                      {themes.map(theme => {
+                        const displayThemeName = theme.includes('|') ? theme.split('|')[1] : theme;
                         return (
-                          <Card key={`${company.theme}-${company.stockCode}`} className="bg-[#1a1a1a] border border-[#333333] rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col overflow-hidden">
-                            <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between border-b border-[#333333]">
-                              <div className="flex flex-col">
-                                <Badge className="bg-blue-700 text-white px-2 py-0.5 rounded-full text-xs mb-1 self-start">
-                                  {company.theme.includes('|') ? company.theme.split('|')[1] : company.theme}
-                                </Badge>
-                                <CardTitle className="text-lg font-semibold text-white leading-tight">{company.name} ({company.stockCode})</CardTitle>
-                              </div>
-                              {isConnected && currentPrice && (
-                                <div className="text-right flex-shrink-0">
-                                  <p className={`text-xl font-bold ${visuals.color}`}>{parseInt(currentPrice).toLocaleString()}원</p>
-                                  {change !== '0' && (
-                                    <div className={`flex items-center justify-end gap-1 text-sm ${visuals.color}`}>
-                                      {visuals.icon}
-                                      <span>{parseInt(change).toLocaleString()} ({parseFloat(changeRate || '0').toFixed(2)}%)</span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </CardHeader>
-                            <CardContent className="p-4 pt-3 flex-grow flex flex-col justify-between">
-                              <div>
-                                <div className="mb-4">
-                                  <h4 className="text-sm font-semibold text-gray-400 mb-2">주요 지표</h4>
-                                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-300">
-                                    <p>현재가: <span className="font-semibold text-white">{parseInt(currentPrice || '0').toLocaleString()}원</span></p>
-                                    <p>시가: <span className="font-semibold text-white">{parseInt(company.openingPrice !== '0' ? company.openingPrice : company.previousClose || '0').toLocaleString()}원</span></p>
-                                    <p>고가: <span className="font-semibold text-white">{parseInt(company.highPrice !== '0' ? company.highPrice : company.previousClose || '0').toLocaleString()}원</span></p>
-                                    <p>저가: <span className="font-semibold text-white">{parseInt(company.lowPrice !== '0' ? company.lowPrice : company.previousClose || '0').toLocaleString()}원</span></p>
-                                    <p>시가총액: <span className="font-semibold text-white">{company.marketCap && parseInt(company.marketCap) > 0 ? `${parseInt(company.marketCap).toLocaleString()}억` : 'N/A'}</span></p>
-                                    <p>PER: <span className="font-semibold text-white">{company.per && company.per !== '' ? company.per : 'N/A'}</span></p>
-                                    <p className="col-span-2">전일대비: <span className={`font-semibold ${changeRateColor}`}>{parseInt(change || '0').toLocaleString()}원 ({parseFloat(changeRate || '0').toFixed(2)}%)</span></p>
-                                  </div>
-                                </div>
-                              </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="mt-3 w-full bg-[#2a2a2a] border-[#444444] text-gray-100 hover:bg-[#3a3a3a]"
-                                onClick={() => handleGetGeminiInsight(company.stockCode, company.name)}
-                              >
-                                2025년 투자 모멘텀
-                              </Button>
-                            </CardContent>
-                          </Card>
+                          <Button
+                            key={theme}
+                            variant="ghost"
+                            className={`w-full justify-start text-left text-sm font-medium transition-colors duration-200 ${
+                              selectedTheme === theme ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-gray-300 hover:bg-[#2a2a2a]'
+                            }`}
+                            onClick={() => setSelectedTheme(theme)}
+                          >
+                            {displayThemeName}
+                          </Button>
                         );
                       })}
                     </div>
-                  )}
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </ResizablePanel>
+
+            <ResizableHandle withHandle className="bg-[#333333] hover:bg-blue-600 transition-colors duration-200" />
+
+            <ResizablePanel defaultSize={75} minSize={50}>
+              <Card className="h-full bg-[#1a1a1a] border-none rounded-lg shadow-lg flex flex-col">
+                <CardHeader className="p-4 pb-2 border-b border-[#333333">
+                  <CardTitle className="text-lg font-semibold text-white mb-3">
+                    {selectedTheme === '전체' ? '전체 기업' : `${selectedTheme.includes('|') ? selectedTheme.split('|')[1] : selectedTheme} 테마 기업`}
+                  </CardTitle>
+                  <Input
+                    type="text"
+                    placeholder="기업명, 종목코드 검색..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-[#2a2a2a] border border-[#444444] text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-md py-2"
+                  />
+                </CardHeader>
+                <CardContent className="p-4 flex-grow overflow-hidden">
+                  <ScrollArea className="h-full">
+                    {filteredCompanies.length === 0 ? (
+                      <div className="text-center text-gray-400 py-8">
+                        <p>표시할 기업 정보가 없습니다.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {filteredCompanies.map(company => {
+                          // 실시간 데이터가 있으면 사용, 없으면 초기 company 데이터 사용
+                          const currentPrice = realtimeStockData[company.stockCode]?.currentPrice || company.currentPrice;
+                          const change = realtimeStockData[company.stockCode]?.change || company.change;
+                          const changeRate = realtimeStockData[company.stockCode]?.changeRate || company.changeRate;
+
+                          const visuals = getStatusVisuals(change || '0');
+                          const changeRateColor = parseFloat(change || '0') > 0 ? 'text-red-400' : parseFloat(change || '0') < 0 ? 'text-blue-400' : 'text-gray-300';
+
+                          return (
+                            <Card key={`${company.theme}-${company.stockCode}`} className="bg-[#1a1a1a] border border-[#333333] rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col overflow-hidden">
+                              <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between border-b border-[#333333">
+                                <div className="flex flex-col">
+                                  <Badge className="bg-blue-700 text-white px-2 py-0.5 rounded-full text-xs mb-1 self-start">
+                                    {company.theme.includes('|') ? company.theme.split('|')[1] : company.theme}
+                                  </Badge>
+                                  <CardTitle className="text-lg font-semibold text-white leading-tight">{company.name} ({company.stockCode})</CardTitle>
+                                </div>
+                                {isConnected && currentPrice && (
+                                  <div className="text-right flex-shrink-0">
+                                    <p className={`text-xl font-bold ${visuals.color}`}>{parseInt(currentPrice).toLocaleString()}원</p>
+                                    {change !== '0' && (
+                                      <div className={`flex items-center justify-end gap-1 text-sm ${visuals.color}`}>
+                                        {visuals.icon}
+                                        <span>{parseInt(change).toLocaleString()} ({parseFloat(changeRate || '0').toFixed(2)}%)</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </CardHeader>
+                              <CardContent className="p-4 pt-3 flex-grow flex flex-col justify-between">
+                                <div>
+                                  <div className="mb-4">
+                                    <h4 className="text-sm font-semibold text-gray-400 mb-2">주요 지표</h4>
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-300">
+                                      <p>현재가: <span className="font-semibold text-white">{parseInt(currentPrice || '0').toLocaleString()}원</span></p>
+                                      <p>시가: <span className="font-semibold text-white">{parseInt(company.openingPrice !== '0' ? company.openingPrice : company.previousClose || '0').toLocaleString()}원</span></p>
+                                      <p>고가: <span className="font-semibold text-white">{parseInt(company.highPrice !== '0' ? company.highPrice : company.previousClose || '0').toLocaleString()}원</span></p>
+                                      <p>저가: <span className="font-semibold text-white">{parseInt(company.lowPrice !== '0' ? company.lowPrice : company.previousClose || '0').toLocaleString()}원</span></p>
+                                      <p>시가총액: <span className="font-semibold text-white">{company.marketCap && parseInt(company.marketCap) > 0 ? `${parseInt(company.marketCap).toLocaleString()}억` : 'N/A'}</span></p>
+                                      <p>PER: <span className="font-semibold text-white">{company.per && company.per !== '' ? company.per : 'N/A'}</span></p>
+                                      <p className="col-span-2">전일대비: <span className={`font-semibold ${changeRateColor}`}>{parseInt(change || '0').toLocaleString()}원 ({parseFloat(changeRate || '0').toFixed(2)}%)</span></p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-3 w-full bg-[#2a2a2a] border-[#444444] text-gray-100 hover:bg-[#3a3a3a]"
+                                  onClick={() => handleGetGeminiInsight(company.stockCode, company.name)}
+                                >
+                                  2025년 투자 모멘텀
+                                </Button>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
       </div>
 
       <AlertDialog open={showGeminiInsightDialog} onOpenChange={(open) => { if (!open) setHasUserClosedDialog(true); setShowGeminiInsightDialog(open); }}>
