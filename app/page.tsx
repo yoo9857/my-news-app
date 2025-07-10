@@ -23,83 +23,11 @@ interface StockData {
   status: 'positive' | 'negative' | 'neutral';
 }
 
-interface Company {
-  theme: string; name: string; stockCode: string; reason: string; bull: string; bear: string;
-}
-
 export default function KoreanStockPlatform() {
   const [activeTab, setActiveTab] = useState("explorer");
   const tabsListRef = useRef<HTMLDivElement>(null);
-
-  // 데이터 상태
-  const [companyData, setCompanyData] = useState<Company[]>([]);
-  const [themes, setThemes] = useState<string[]>([]);
   const [stockData, setStockData] = useState<Record<string, StockData>>({});
-  
-  // 상태 관리
-  const [isConnected, setIsConnected] = useState(true); // API 서버가 켜져있다고 가정
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchCompanyData = async (retryCount = 0) => {
-    // 30번 이상 재시도했으면 포기 (약 2분 30초)
-    if (retryCount > 30) {
-      setError("서버에서 데이터를 가져오는 데 너무 오래 걸립니다. 잠시 후 다시 시도해 주세요.");
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      // 첫 시도일 때만 로딩 상태를 true로 설정
-      if (retryCount === 0) {
-        setIsLoading(true);
-        setError(null);
-      }
-      
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/companies`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`서버 응답 오류: ${response.status}`);
-      }
-      const result = await response.json();
-
-      if (result.success && result.data) {
-        // 데이터를 받았지만 비어있고, 재시도 횟수가 남아있다면 5초 후 다시 시도
-        if (result.data.length === 0 && retryCount < 3) { // Reduced retry count for quicker feedback
-          console.log(`데이터가 아직 준비되지 않았습니다. 5초 후 다시 시도합니다... (시도 횟수: ${retryCount + 1})`);
-          setTimeout(() => fetchCompanyData(retryCount + 1), 5000);
-          return; // 여기서 함수를 종료하고 다음 재시도를 기다림
-        }
-        
-        setCompanyData(result.data);
-        const extractedThemes = ["전체", ...Array.from(new Set(result.data.map((c: any) => c.theme).filter(Boolean)))];
-        setThemes(extractedThemes as string[]);
-        setIsLoading(false); // 데이터 로딩 성공 시 로딩 상태 해제
-        if (result.data.length === 0) {
-            setError("데이터를 가져왔지만, 기업 목록이 비어있습니다.");
-        } else {
-            setError(null); // Clear any previous errors if data is now available
-        }
-
-      } else {
-        throw new Error(result.error || '기업 정보 처리 실패');
-      }
-    } catch (err: any) {
-      console.error("기업 정보 로드 실패:", err);
-      setError(`기업 정보를 불러오는 데 실패했습니다. (${err.message})`);
-      setIsLoading(false);
-    }
-  };
-
-  // 컴포넌트가 마운트될 때 데이터 로드
-  useEffect(() => {
-    fetchCompanyData();
-  }, []);
+  const [isConnected, setIsConnected] = useState(true); // API 서버 연결 상태 (추후 실제 로직으로 교체)
 
   // 탭 스크롤 로직
   useEffect(() => {
@@ -110,7 +38,11 @@ export default function KoreanStockPlatform() {
         tabsListElement.scrollLeft += event.deltaY;
       };
       tabsListElement.addEventListener('wheel', handleWheel, { passive: false });
-      return () => { tabsListElement.removeEventListener('wheel', handleWheel); };
+      return () => {
+        if (tabsListElement) {
+          tabsListElement.removeEventListener('wheel', handleWheel);
+        }
+      };
     }
   }, []);
 
@@ -136,37 +68,24 @@ export default function KoreanStockPlatform() {
       <div className="max-w-7xl mx-auto px-4 sm:px-10 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList ref={tabsListRef} className="flex flex-nowrap overflow-x-auto justify-center bg-[#28354A] rounded-2xl p-1.5 shadow-xl border border-[#3E4C66] gap-1.5 hide-scrollbar">
-            <TabsTrigger value="explorer" className="...">기업 탐색기</TabsTrigger>
-            <TabsTrigger value="news" className="...">실시간 뉴스</TabsTrigger>
-            <TabsTrigger value="tools" className="...">투자 분석 도구</TabsTrigger>
-            <TabsTrigger value="dailyPlan" className="...">일일 계획</TabsTrigger>
-            <TabsTrigger value="portfolio" className="...">포트폴리오</TabsTrigger>
+            <TabsTrigger value="explorer" className="... (styles)">기업 탐색기</TabsTrigger>
+            <TabsTrigger value="news" className="... (styles)">실시간 뉴스</TabsTrigger>
+            <TabsTrigger value="tools" className="... (styles)">투자 분석 도구</TabsTrigger>
+            <TabsTrigger value="dailyPlan" className="... (styles)">일일 계획</TabsTrigger>
+            <TabsTrigger value="portfolio" className="... (styles)">포트폴리오</TabsTrigger>
           </TabsList>
           
           <TabsContent value="explorer" className="mt-6 bg-[#1C2534] p-6 rounded-xl shadow-lg border border-[#2D3A4B]">
-            {isLoading ? (
-              <div className="flex justify-center items-center h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-                <p className="ml-4 text-lg">기업 정보를 불러오는 중입니다...</p>
-              </div>
-            ) : error ? (
-              <div className="text-center text-red-400">
-                <p>오류: {error}</p>
-              </div>
-            ) : (
-              <CompanyExplorer
-                companyData={companyData}
-                themes={themes}
-                stockData={stockData}
-                isConnected={isConnected}
-              />
-            )}
+            <CompanyExplorer
+              stockData={stockData}
+              isConnected={isConnected}
+            />
           </TabsContent>
 
-          <TabsContent value="news" className="mt-6 ..."><RealTimeNews /></TabsContent>
-          <TabsContent value="tools" className="mt-6 ..."><InvestmentCalculators /></TabsContent>
-          <TabsContent value="dailyPlan" className="mt-6 ..."><DailyInvestmentPlan /></TabsContent>
-          <TabsContent value="portfolio" className="mt-6 ..."><WisePortfolio /></TabsContent>
+          <TabsContent value="news" className="mt-6 ... (styles)"><RealTimeNews /></TabsContent>
+          <TabsContent value="tools" className="mt-6 ... (styles)"><InvestmentCalculators /></TabsContent>
+          <TabsContent value="dailyPlan" className="mt-6 ... (styles)"><DailyInvestmentPlan /></TabsContent>
+          <TabsContent value="portfolio" className="mt-6 ... (styles)"><WisePortfolio /></TabsContent>
         </Tabs>
       </div>
     </div>
