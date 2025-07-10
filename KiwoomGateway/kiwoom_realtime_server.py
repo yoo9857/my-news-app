@@ -12,18 +12,18 @@ from PyQt5.QtCore import QEventLoop
 app = FastAPI()
 
 # --- CORS 미들웨어 설정 ---
-# Next.js 개발 서버 및 ngrok 배포 주소로부터의 요청을 허용합니다.
+# 허용할 출처(origin) 목록입니다.
 origins = [
     "http://localhost:3001",
     "http://127.0.0.1:3001",
-    # Add your ngrok URL or future deployment URL here
-    # e.g., "https://<your-random-string>.ngrok-free.app"
+    "https://onedaytrading.net", # Vercel 커스텀 도메인
+    "https://v0-korean-news-scraper.vercel.app", # Vercel 기본 도메인
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=r'https://.*\.ngrok-free\.app', # Allows any ngrok subdomain
+    allow_origin_regex=r'https://.*\.vercel\.app', # 모든 Vercel 프리뷰 도메인 허용
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
