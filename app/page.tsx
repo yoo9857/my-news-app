@@ -42,11 +42,21 @@ export default function KoreanStockPlatform() {
   const [error, setError] = useState<string | null>(null);
 
   // 데이터 로드 함수
-  const fetchCompanyData = async () => {
+  const fetchCompanyData = async (retryCount = 0) => {
+    // 10번 이상 재시도했으면 포기
+    if (retryCount > 10) {
+      setError("서버에서 데이터를 가져오는 데 너무 오래 걸립니다. 잠시 후 다시 시도해 주세요.");
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      setIsLoading(true);
-      setError(null);
-      // FastAPI 서버로 직접 요청
+      // 첫 시도일 때만 로딩 상태를 true로 설정
+      if (retryCount === 0) {
+        setIsLoading(true);
+        setError(null);
+      }
+      
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
       const response = await fetch(`${apiUrl}/api/all-companies`, {
         headers: {
@@ -60,21 +70,30 @@ export default function KoreanStockPlatform() {
       const result = await response.json();
 
       if (result.success && result.data) {
-        if (result.data.length === 0) {
-          console.log("서버로부터 빈 기업 목록을 받았습니다.");
-          setError("데이터를 가져왔지만, 기업 목록이 비어있습니다.");
-        } else {
-          setCompanyData(result.data);
-          const extractedThemes = ["전체", ...Array.from(new Set(result.data.map((c: any) => c.theme).filter(Boolean)))];
-          setThemes(extractedThemes as string[]);
+        // 데이터를 받았지만 비어있고, 재시도 횟수가 남아있다면 5초 후 다시 시도
+        if (result.data.length === 0 && retryCount <= 10) {
+          console.log(`데이터가 아직 준비되지 않았습니다. 5초 후 다시 시도합니다... (시도 횟수: ${retryCount + 1})`);
+          setTimeout(() => fetchCompanyData(retryCount + 1), 5000);
+          return; // 여기서 함수를 종료하고 다음 재시도를 기다림
         }
+        
+        if (result.data.length > 0) {
+            setCompanyData(result.data);
+            const extractedThemes = ["전체", ...Array.from(new Set(result.data.map((c: any) => c.theme).filter(Boolean)))];
+            setThemes(extractedThemes as string[]);
+            setIsLoading(false); // 데이터 로딩 성공 시 로딩 상태 해제
+        } else {
+            // 재시도를 모두 소진했는데도 데이터가 없는 경우
+            setError("데이터를 가져왔지만, 기업 목록이 비어있습니다.");
+            setIsLoading(false);
+        }
+
       } else {
         throw new Error(result.error || '기업 정보 처리 실패');
       }
     } catch (err: any) {
       console.error("기업 정보 로드 실패:", err);
       setError(`기업 정보를 불러오는 데 실패했습니다. (${err.message})`);
-    } finally {
       setIsLoading(false);
     }
   };
