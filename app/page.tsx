@@ -51,6 +51,7 @@ export default function KoreanStockPlatform() {
 
     // Fetch initial stock data
   useEffect(() => {
+    console.log("KIWOOM_API_BASE_URL:", KIWOOM_API_BASE_URL);
     const fetchInitialStockData = async () => {
       try {
         const response = await fetch(`${KIWOOM_API_BASE_URL}/api/all-companies`);
@@ -195,6 +196,7 @@ export default function KoreanStockPlatform() {
               isConnected={isConnected}
               websocket={ws.current} // Pass websocket instance to CompanyExplorer
               fetchError={fetchError}
+              kiwoomApiBaseUrl={KIWOOM_API_BASE_URL}
             />
           </TabsContent>
 

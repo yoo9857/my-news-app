@@ -48,9 +48,10 @@ interface CompanyExplorerProps {
   isConnected: boolean;
   websocket: WebSocket | null; // app/page.tsx에서 전달받음
   fetchError: boolean;
+  kiwoomApiBaseUrl: string | undefined;
 }
 
-export default function CompanyExplorer({ stockData, isConnected, websocket, fetchError }: CompanyExplorerProps) {
+export default function CompanyExplorer({ stockData, isConnected, websocket, fetchError, kiwoomApiBaseUrl }: CompanyExplorerProps) {
   const [themes, setThemes] = useState<string[]>(['전체']);
   const [selectedTheme, setSelectedTheme] = useState('전체');
   const [searchTerm, setSearchTerm] = useState('');
@@ -98,7 +99,7 @@ export default function CompanyExplorer({ stockData, isConnected, websocket, fet
     setShowGeminiInsightDialog(true);
 
     try {
-      const response = await fetch('/api/gemini-insight', {
+      const response = await fetch(`${kiwoomApiBaseUrl}/api/gemini-insight`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stockCode, companyName }),
