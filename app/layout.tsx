@@ -8,6 +8,12 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata = {
   title: '대한민국 투자 플랫폼',
   description: 'AI 기반 한국 주식 시장 분석 및 투자 관리 플랫폼',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
 };
 
 export default function RootLayout({
