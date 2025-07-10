@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button'; // Button 컴포넌트 추가
+import { Button } from '@/components/ui/button';
 import { Loader2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'; // Resizable 컴포넌트 추가
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,45 +16,42 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; // Added AlertDialog components
+} from "@/components/ui/alert-dialog";
 
-// 타입 정의
-interface Company {
+// 타입 정의 (app/page.tsx와 동일하게 유지)
+interface StockInfo {
   theme: string;
-  name: string;
   stockCode: string;
-  reason: string;
-  bull: string;
-  bear: string;
-  marketCap?: string;
-  per?: string;
-  currentPrice?: string;
-  highPrice?: string;
-  lowPrice?: string;
-  openingPrice?: string;
-  change?: string;
-  changeRate?: string;
+  name: string;
+  marketCap: string;
+  per: string;
+  currentPrice: string;
+  highPrice: string;
+  lowPrice: string;
+  openingPrice: string;
+  change: string;
+  changeRate: string;
+  previousClose: string;
 }
 
-interface StockData {
-  code: string;
-  name: string;
-  current_price: number;
-  change: number;
-  change_rate: number;
-  status: 'positive' | 'negative' | 'neutral';
+interface RealTimeStockData {
+  stockCode: string;
+  currentPrice: string;
+  changeRate: string;
+  change: string;
+  realType: string;
+  timestamp: number;
 }
 
 interface CompanyExplorerProps {
-  stockData: Record<string, StockData>;
+  stockData: Record<string, StockInfo>; // app/page.tsx에서 전달받음
   isConnected: boolean;
+  websocket: WebSocket | null; // app/page.tsx에서 전달받음
+  fetchError: boolean;
 }
 
-export default function CompanyExplorer({ stockData, isConnected }: CompanyExplorerProps) {
-  const [companies, setCompanies] = useState<Company[]>([]);
+export default function CompanyExplorer({ stockData, isConnected, websocket, fetchError }: CompanyExplorerProps) {
   const [themes, setThemes] = useState<string[]>(['전체']);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedTheme, setSelectedTheme] = useState('전체');
   const [searchTerm, setSearchTerm] = useState('');
   const [geminiInsight, setGeminiInsight] = useState<string | null>(null);
@@ -63,33 +60,35 @@ export default function CompanyExplorer({ stockData, isConnected }: CompanyExplo
   const [currentInsightCompany, setCurrentInsightCompany] = useState<{ name: string; stockCode: string } | null>(null);
   const [hasUserClosedDialog, setHasUserClosedDialog] = useState(false);
 
-  useEffect(() => {
-    const fetchCompanyData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await fetch('http://127.0.0.1:8000/api/all-companies');
-        if (!response.ok) {
-          throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
-        }
-        const data = await response.json();
-        if (data.success) {
-          setCompanies(data.data);
-          const uniqueThemes = ['전체', ...Array.from(new Set(data.data.map((c: Company) => c.theme)))];
-          setThemes(uniqueThemes as string[]);
-        } else {
-          throw new Error(data.message || 'Failed to fetch company data.');
-        }
-      } catch (err: any) {
-        console.error('Error fetching company data:', err);
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // 실시간 데이터를 저장할 상태 (app/page.tsx에서 받은 stockData를 기반으로 업데이트)
+  const [realtimeStockData, setRealtimeStockData] = useState<Record<string, RealTimeStockData>>({});
 
-    fetchCompanyData();
-  }, []);
+  // stockData가 변경될 때마다 테마 목록 업데이트
+  useEffect(() => {
+    if (Object.keys(stockData).length > 0) {
+      const uniqueThemes = ['전체', ...Array.from(new Set(Object.values(stockData).map(c => c.theme)))];
+      setThemes(uniqueThemes);
+    }
+  }, [stockData]);
+
+  // 웹소켓을 통한 실시간 데이터 구독 및 처리
+  useEffect(() => {
+    if (websocket && websocket.readyState === WebSocket.OPEN && Object.keys(stockData).length > 0) {
+      const stockCodesToSubscribe = Object.keys(stockData);
+      websocket.send(JSON.stringify({ type: 'subscribe', stockCodes: stockCodesToSubscribe }));
+
+      websocket.onmessage = (event) => {
+        const message: { type: string; data: RealTimeStockData } = JSON.parse(event.data);
+        if (message.type === 'realtime') {
+          const realData = message.data;
+          setRealtimeStockData(prevData => ({
+            ...prevData,
+            [realData.stockCode]: realData,
+          }));
+        }
+      };
+    }
+  }, [websocket, stockData]); // websocket 또는 stockData가 변경될 때마다 실행
 
   const handleGetGeminiInsight = async (stockCode: string, companyName: string) => {
     setLoadingGeminiInsight(true);
@@ -120,7 +119,7 @@ export default function CompanyExplorer({ stockData, isConnected }: CompanyExplo
   };
 
   const filteredCompanies = useMemo(() => {
-    let currentCompanies = companies;
+    let currentCompanies = Object.values(stockData); // stockData prop 사용
     if (selectedTheme !== '전체') {
       currentCompanies = currentCompanies.filter(company => company.theme === selectedTheme);
     }
@@ -131,17 +130,30 @@ export default function CompanyExplorer({ stockData, isConnected }: CompanyExplo
       );
     }
     return currentCompanies;
-  }, [companies, selectedTheme, searchTerm]);
+  }, [stockData, selectedTheme, searchTerm]); // stockData를 의존성 배열에 추가
 
-  const getStatusVisuals = (status: 'positive' | 'negative' | 'neutral') => {
-    switch (status) {
-      case 'positive': return { icon: <TrendingUp className="h-5 w-5 text-red-400" />, color: 'text-red-400' };
-      case 'negative': return { icon: <TrendingDown className="h-5 w-5 text-blue-400" />, color: 'text-blue-400' };
-      default: return { icon: <Minus className="h-5 w-5 text-gray-500" />, color: 'text-gray-300' };
-    }
+  const getStatusVisuals = (change: string) => {
+    const changeVal = parseFloat(change);
+    if (changeVal > 0) return { icon: <TrendingUp className="h-5 w-5 text-red-400" />, color: 'text-red-400' };
+    if (changeVal < 0) return { icon: <TrendingDown className="h-5 w-5 text-blue-400" />, color: 'text-blue-400' };
+    return { icon: <Minus className="h-5 w-5 text-gray-500" />, color: 'text-gray-300' };
   };
 
-  if (isLoading) {
+  // stockData가 비어있고 fetchError가 true일 때 오류 메시지 표시
+  if (Object.keys(stockData).length === 0 && fetchError) {
+    return (
+      <div className="flex flex-col justify-center items-center h-[calc(100vh-180px)] text-center text-red-400">
+        <p className="text-xl font-bold">오류: 기업 정보를 불러오는데 실패했습니다.</p>
+        <p className="text-md mt-2">failed to fetch</p>
+        <Button onClick={() => window.location.reload()} className="mt-4 bg-blue-600 hover:bg-blue-700 text-white">
+          페이지 새로고침
+        </Button>
+      </div>
+    );
+  }
+
+  // stockData가 비어있고 isConnected가 false일 때 로딩 상태 표시 (fetchError가 아닐 경우)
+  if (Object.keys(stockData).length === 0 && !isConnected) {
     return (
       <div className="flex flex-col justify-center items-center h-[calc(100vh-180px)] text-white">
         <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
@@ -151,11 +163,12 @@ export default function CompanyExplorer({ stockData, isConnected }: CompanyExplo
     );
   }
 
-  if (error) {
+  // stockData는 있지만 isConnected가 false일 때 (연결 끊김)
+  if (Object.keys(stockData).length > 0 && !isConnected) {
     return (
       <div className="flex flex-col justify-center items-center h-[calc(100vh-180px)] text-center text-red-400">
-        <p className="text-xl font-bold">오류: 기업 정보를 불러오는 데 실패했습니다.</p>
-        <p className="text-md mt-2">{error}</p>
+        <p className="text-xl font-bold">오류: API 서버 연결이 끊어졌습니다.</p>
+        <p className="text-md mt-2">실시간 데이터를 불러올 수 없습니다. 서버 상태를 확인해주세요.</p>
         <Button onClick={() => window.location.reload()} className="mt-4 bg-blue-600 hover:bg-blue-700 text-white">
           페이지 새로고침
         </Button>
@@ -221,8 +234,14 @@ export default function CompanyExplorer({ stockData, isConnected }: CompanyExplo
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                       {filteredCompanies.map(company => {
-                        const realTimeData = stockData[company.stockCode];
-                        const visuals = getStatusVisuals(realTimeData?.status);
+                        // 실시간 데이터가 있으면 사용, 없으면 초기 company 데이터 사용
+                        const currentPrice = realtimeStockData[company.stockCode]?.currentPrice || company.currentPrice;
+                        const change = realtimeStockData[company.stockCode]?.change || company.change;
+                        const changeRate = realtimeStockData[company.stockCode]?.changeRate || company.changeRate;
+
+                        const visuals = getStatusVisuals(change || '0');
+                        const changeRateColor = parseFloat(change || '0') > 0 ? 'text-red-400' : parseFloat(change || '0') < 0 ? 'text-blue-400' : 'text-gray-300';
+
                         return (
                           <Card key={`${company.theme}-${company.stockCode}`} className="bg-[#1a1a1a] border border-[#333333] rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col overflow-hidden">
                             <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between border-b border-[#333333]">
@@ -232,13 +251,15 @@ export default function CompanyExplorer({ stockData, isConnected }: CompanyExplo
                                 </Badge>
                                 <CardTitle className="text-lg font-semibold text-white leading-tight">{company.name} ({company.stockCode})</CardTitle>
                               </div>
-                              {isConnected && realTimeData && (
+                              {isConnected && currentPrice && (
                                 <div className="text-right flex-shrink-0">
-                                  <p className={`text-xl font-bold ${visuals.color}`}>{realTimeData.current_price.toLocaleString()}원</p>
-                                  <div className={`flex items-center justify-end gap-1 text-sm ${visuals.color}`}>
-                                    {visuals.icon}
-                                    <span>{realTimeData.change.toLocaleString()} ({realTimeData.change_rate.toFixed(2)}%)</span>
-                                  </div>
+                                  <p className={`text-xl font-bold ${visuals.color}`}>{parseInt(currentPrice).toLocaleString()}원</p>
+                                  {change !== '0' && (
+                                    <div className={`flex items-center justify-end gap-1 text-sm ${visuals.color}`}>
+                                      {visuals.icon}
+                                      <span>{parseInt(change).toLocaleString()} ({parseFloat(changeRate || '0').toFixed(2)}%)</span>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </CardHeader>
@@ -247,17 +268,15 @@ export default function CompanyExplorer({ stockData, isConnected }: CompanyExplo
                                 <div className="mb-4">
                                   <h4 className="text-sm font-semibold text-gray-400 mb-2">주요 지표</h4>
                                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-300">
-                                    {company.currentPrice && <p>현재가: <span className="font-semibold text-white">{parseInt(company.currentPrice).toLocaleString()}원</span></p>}
-                                    {company.marketCap && <p>시가총액: <span className="font-semibold text-white">{parseInt(company.marketCap).toLocaleString()}억</span></p>}
-                                    {company.per && <p>PER: <span className="font-semibold text-white">{company.per}</span></p>}
+                                    <p>현재가: <span className="font-semibold text-white">{parseInt(currentPrice || '0').toLocaleString()}원</span></p>
+                                    <p>시가: <span className="font-semibold text-white">{parseInt(company.openingPrice !== '0' ? company.openingPrice : company.previousClose || '0').toLocaleString()}원</span></p>
+                                    <p>고가: <span className="font-semibold text-white">{parseInt(company.highPrice !== '0' ? company.highPrice : company.previousClose || '0').toLocaleString()}원</span></p>
+                                    <p>저가: <span className="font-semibold text-white">{parseInt(company.lowPrice !== '0' ? company.lowPrice : company.previousClose || '0').toLocaleString()}원</span></p>
+                                    <p>시가총액: <span className="font-semibold text-white">{company.marketCap && parseInt(company.marketCap) > 0 ? `${parseInt(company.marketCap).toLocaleString()}억` : 'N/A'}</span></p>
+                                    <p>PER: <span className="font-semibold text-white">{company.per && company.per !== '' ? company.per : 'N/A'}</span></p>
+                                    <p className="col-span-2">전일대비: <span className={`font-semibold ${changeRateColor}`}>{parseInt(change || '0').toLocaleString()}원 ({parseFloat(changeRate || '0').toFixed(2)}%)</span></p>
                                   </div>
                                 </div>
-                                {(company.reason || company.bull || company.bear) && (
-                                  <div>
-                                    <h4 className="text-sm font-semibold text-gray-400 mb-2">투자 인사이트</h4>
-                                    <CardDescription className="text-gray-300 text-sm mb-2 line-clamp-2">{company.reason}</CardDescription>
-                                  </div>
-                                )}
                               </div>
                               <Button
                                 variant="outline"
