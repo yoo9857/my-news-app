@@ -41,10 +41,9 @@ export default function KoreanStockPlatform() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 데이터 로드 함수
   const fetchCompanyData = async (retryCount = 0) => {
-    // 10번 이상 재시도했으면 포기
-    if (retryCount > 10) {
+    // 30번 이상 재시도했으면 포기 (약 2분 30초)
+    if (retryCount > 30) {
       setError("서버에서 데이터를 가져오는 데 너무 오래 걸립니다. 잠시 후 다시 시도해 주세요.");
       setIsLoading(false);
       return;
@@ -71,7 +70,7 @@ export default function KoreanStockPlatform() {
 
       if (result.success && result.data) {
         // 데이터를 받았지만 비어있고, 재시도 횟수가 남아있다면 5초 후 다시 시도
-        if (result.data.length === 0 && retryCount <= 10) {
+        if (result.data.length === 0 && retryCount <= 30) {
           console.log(`데이터가 아직 준비되지 않았습니다. 5초 후 다시 시도합니다... (시도 횟수: ${retryCount + 1})`);
           setTimeout(() => fetchCompanyData(retryCount + 1), 5000);
           return; // 여기서 함수를 종료하고 다음 재시도를 기다림
