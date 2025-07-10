@@ -402,18 +402,28 @@ def run_fastapi_server():
     @app.on_event("startup")
     async def startup_event():
         asyncio.create_task(real_data_broadcaster())
-        print("Real-time data broadcaster started.")
+        print("✅ Real-time data broadcaster started.")
         
         # 키움 API 연결이 완료될 때까지 기다립니다.
+        print("⌛ Waiting for Kiwoom API connection...")
         while not kiwoom_api_instance.is_connected:
             await asyncio.sleep(0.1) # 0.1초마다 확인
-        
+        print("✅ Kiwoom API connected.")
+
+        # ================== 핵심 수정 부분 ================== #
+        # API가 데이터를 조회할 준비를 마칠 때까지 잠시 대기합니다. (3초)
+        print("⌛ Giving Kiwoom API a moment to get ready...")
+        await asyncio.sleep(3) 
+        # ==================================================== #
+
         # 모든 기업 정보 로딩을 비동기로 시작
+        print(" Starting to load all company data...")
         asyncio.create_task(kiwoom_api_instance.load_all_company_data())
     
-    # 명시적으로 생성한 이벤트 루프를 Uvicorn에 전달합니다.
-    # uvicorn.run(app, host="0.0.0.0", port=8000, loop=loop) # 기존 라인 주석 처리
-    loop.run_until_complete(uvicorn.run(app, host="0.0.0.0", port=8000))
+    # Uvicorn 서버 실행
+    config = uvicorn.Config(app, host="0.0.0.0", port=8000, loop=loop)
+    server = uvicorn.Server(config)
+    loop.run_until_complete(server.serve())
 
 # --- 메인 실행 로직 ---
 if __name__ == '__main__':
