@@ -48,7 +48,11 @@ export default function KoreanStockPlatform() {
       setError(null);
       // FastAPI 서버로 직접 요청
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-      const response = await fetch(`${apiUrl}/api/all-companies`);
+      const response = await fetch(`${apiUrl}/api/all-companies`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       
       if (!response.ok) {
         throw new Error(`서버 응답 오류: ${response.status}`);
