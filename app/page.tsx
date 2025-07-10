@@ -54,7 +54,11 @@ export default function KoreanStockPlatform() {
     console.log("KIWOOM_API_BASE_URL:", KIWOOM_API_BASE_URL);
     const fetchInitialStockData = async () => {
       try {
-        const response = await fetch(`${KIWOOM_API_BASE_URL}/api/all-companies`);
+        const requestUrl = `${KIWOOM_API_BASE_URL}/api/all-companies`;
+        console.log("Fetching initial stock data from:", requestUrl); // 요청 URL 로깅
+        const response = await fetch(requestUrl);
+        console.log("Response URL:", response.url); // 실제 응답받은 URL 로깅
+        console.log("Response Status:", response.status); // 응답 상태 코드 로깅
         if (response.ok) {
           const data = await response.json();
           if (data.success && Array.isArray(data.data)) {
@@ -69,9 +73,11 @@ export default function KoreanStockPlatform() {
             setIsConnected(false);
           }
         } else {
-          console.error("HTTP error fetching initial stock data:", response.statusText);
-          setIsConnected(false);
-          setFetchError(true);
+          console.error("HTTP error fetching initial stock data:", response.status, response.statusText);
+          // 응답 본문을 텍스트로 읽어서 추가 로깅
+          const errorText = await response.text();
+          console.error("Error response body:", errorText);
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
       } catch (error) {
         console.error("Error fetching initial stock data:", error);
