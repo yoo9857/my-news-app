@@ -183,9 +183,14 @@ class KiwoomAPI:
 
     def get_theme_group_code(self, theme_code):
         numeric_theme_code = theme_code.split('|')[0]
+        print(f"  - 요청 테마 코드: {numeric_theme_code}")
         stock_codes_str = self.ocx.dynamicCall("GetThemeGroupCode(QString)", numeric_theme_code)
+        print(f"  - GetThemeGroupCode 원본 응답: '{stock_codes_str}'")
         if stock_codes_str:
-            return stock_codes_str.split('|')[:-1] # 마지막 빈 문자열 제거
+            result_codes = stock_codes_str.split('|')[:-1] # 마지막 빈 문자열 제거
+            print(f"  - 처리된 종목 코드: {result_codes}")
+            return result_codes
+        print("  - GetThemeGroupCode 응답이 비어 있습니다.")
         return []
 
     async def load_all_company_data(self):
