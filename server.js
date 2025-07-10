@@ -28,6 +28,9 @@ app.prepare().then(() => {
 
     // ⭐️ /api/companies 경로로 GET 요청이 오면 캐시된 데이터를 반환합니다.
     if (req.method === 'GET' && pathname === '/api/companies') {
+      res.setHeader('Access-Control-Allow-Origin', '*'); // 모든 출처 허용 (개발용)
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
       res.setHeader('Content-Type', 'application/json');
       res.writeHead(200);
       res.end(JSON.stringify({ success: true, companies: companyDataCache }));
