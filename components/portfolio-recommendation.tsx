@@ -1,141 +1,157 @@
-// components/portfolio-recommendation.tsx
-'use client'; // 클라이언트 컴포넌트임을 명시합니다.
+'use client';
 
-import React, { useState } from 'react'; // useState를 사용하므로 임포트합니다.
+import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useToast } from "@/hooks/use-toast"; // 토스트 알림을 위해 추가
+import { Shield, Swords, Zap, Gem, Briefcase } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast";
 
-// 포트폴리오 추천 로직을 위한 예시 데이터
+// --- Data ---
 const samplePortfolios = {
   conservative: [
-    { name: "삼성전자 (005930)", type: "대형주", weight: 30, expectedReturn: "5-7%", risk: "낮음" },
-    { name: "KB금융 (105560)", type: "금융주", weight: 25, expectedReturn: "6-8%", risk: "낮음" },
-    { name: "POSCO홀딩스 (005490)", type: "가치주", weight: 20, expectedReturn: "4-6%", risk: "보통" },
-    { name: "한국전력공사 (015760)", type: "배당주/공기업", weight: 15, expectedReturn: "3-5%", risk: "낮음" },
-    { name: "현금", type: "안전자산", weight: 10, expectedReturn: "0-1%", risk: "매우 낮음" },
+    { id: 1, name: "삼성전자", type: "대형주", weight: 30, icon: <Gem size={20} className="text-blue-400" /> },
+    { id: 2, name: "KB금융", type: "금융주", weight: 25, icon: <Briefcase size={20} className="text-green-400" /> },
+    { id: 3, name: "POSCO홀딩스", type: "가치주", weight: 20, icon: <Shield size={20} className="text-gray-400" /> },
+    { id: 4, name: "한국전력", type: "배당주", weight: 15, icon: <Zap size={20} className="text-yellow-400" /> },
+    { id: 5, name: "현금", type: "안전자산", weight: 10, icon: <Shield size={20} className="text-gray-400" /> },
   ],
   moderate: [
-    { name: "SK하이닉스 (000660)", type: "반도체", weight: 35, expectedReturn: "10-15%", risk: "보통" },
-    { name: "NAVER (035420)", type: "인터넷/플랫폼", weight: 25, expectedReturn: "8-12%", risk: "보통" },
-    { name: "셀트리온 (068270)", type: "바이오", weight: 20, expectedReturn: "12-18%", risk: "높음" },
-    { name: "삼성전자 (005930)", type: "대형주", weight: 10, expectedReturn: "5-7%", risk: "낮음" },
-    { name: "현금", type: "안전자산", weight: 10, expectedReturn: "0-1%", risk: "매우 낮음" },
+    { id: 1, name: "SK하이닉스", type: "반도체", weight: 35, icon: <Gem size={20} className="text-blue-400" /> },
+    { id: 2, name: "NAVER", type: "플랫폼", weight: 25, icon: <Zap size={20} className="text-yellow-400" /> },
+    { id: 3, name: "셀트리온", type: "바이오", weight: 20, icon: <Briefcase size={20} className="text-green-400" /> },
+    { id: 4, name: "삼성전자", type: "대형주", weight: 10, icon: <Shield size={20} className="text-gray-400" /> },
+    { id: 5, name: "현금", type: "안전자산", weight: 10, icon: <Shield size={20} className="text-gray-400" /> },
   ],
   aggressive: [
-    { name: "엔씨소프트 (036570)", type: "게임/성장주", weight: 30, expectedReturn: "15-25%", risk: "매우 높음" },
-    { name: "카카오 (035720)", type: "플랫폼/성장주", weight: 25, expectedReturn: "12-20%", risk: "높음" },
-    { name: "삼성바이오로직스 (207940)", type: "바이오/CDMO", weight: 20, expectedReturn: "10-18%", risk: "높음" },
-    { name: "에코프로비엠 (247540)", type: "2차전지 소재", weight: 15, expectedReturn: "20-30%", risk: "매우 높음" },
-    { name: "SK하이닉스 (000660)", type: "반도체", weight: 10, expectedReturn: "10-15%", risk: "보통" },
+    { id: 1, name: "엔씨소프트", type: "게임", weight: 30, icon: <Swords size={20} className="text-red-400" /> },
+    { id: 2, name: "카카오", type: "플랫폼", weight: 25, icon: <Zap size={20} className="text-yellow-400" /> },
+    { id: 3, name: "삼성바이오", type: "바이오", weight: 20, icon: <Briefcase size={20} className="text-green-400" /> },
+    { id: 4, name: "에코프로비엠", type: "2차전지", weight: 15, icon: <Gem size={20} className="text-blue-400" /> },
+    { id: 5, name: "SK하이닉스", type: "반도체", weight: 10, icon: <Shield size={20} className="text-gray-400" /> },
   ],
 };
 
+// --- Animation Variants ---
+const containerVariants: Variants = {
+  hidden: { opacity: 1 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 20, scale: 0.95 },
+  visible: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 100 } }
+};
+
 const WisePortfolio: React.FC = () => {
-  const [riskTolerance, setRiskTolerance] = useState<number[]>([50]); // 0-100 스케일
+  const [riskTolerance, setRiskTolerance] = useState<number[]>([50]);
   const [recommendedPortfolio, setRecommendedPortfolio] = useState<any[] | null>(null);
   const { toast } = useToast();
 
-  const getPortfolioRecommendation = (risk: number) => {
-    if (risk < 30) {
-      return samplePortfolios.conservative;
-    } else if (risk < 70) {
-      return samplePortfolios.moderate;
-    } else {
-      return samplePortfolios.aggressive;
-    }
-  };
+  const riskProfile = useMemo(() => {
+    const risk = riskTolerance[0];
+    if (risk < 30) return { name: '안정형', icon: <Shield className="text-blue-400" />, color: "text-blue-400" };
+    if (risk < 70) return { name: '중립형', icon: <Briefcase className="text-yellow-400" />, color: "text-yellow-400" };
+    return { name: '공격형', icon: <Swords className="text-red-400" />, color: "text-red-400" };
+  }, [riskTolerance]);
 
   const handleRecommendPortfolio = () => {
-    const portfolio = getPortfolioRecommendation(riskTolerance[0]);
+    const risk = riskTolerance[0];
+    let portfolio;
+    if (risk < 30) portfolio = samplePortfolios.conservative;
+    else if (risk < 70) portfolio = samplePortfolios.moderate;
+    else portfolio = samplePortfolios.aggressive;
+    
     setRecommendedPortfolio(portfolio);
     toast({
       title: "포트폴리오 추천 완료",
-      description: `선택하신 위험 감수 수준에 맞는 포트폴리오를 추천했습니다.`,
-      variant: "default",
+      description: `선택하신 '${riskProfile.name}' 성향에 맞는 포트폴리오입니다.`,
     });
   };
 
   return (
-    <Card className="bg-gray-800 text-gray-100 border-gray-700">
-      <CardHeader>
-        <CardTitle className="text-2xl font-bold text-white">현명한 포트폴리오 추천</CardTitle>
-        <CardDescription className="text-gray-400">
-          사용자님의 투자 성향에 맞춰 한국 주식 시장에 특화된 포트폴리오를 제안합니다.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* 위험 감수 수준 설정 */}
-        <div>
-          <h3 className="text-xl font-semibold text-white mb-4">투자 위험 감수 수준</h3>
-          <Label htmlFor="risk-tolerance" className="text-gray-300 mb-2 block">
-            낮음 ({riskTolerance[0]}%) 높음
-          </Label>
-          <Slider
-            id="risk-tolerance"
-            min={0}
-            max={100}
-            step={1}
-            value={riskTolerance}
-            onValueChange={setRiskTolerance}
-            className="w-full [&>span:first-child]:bg-blue-600 [&>span:first-child]:hover:bg-blue-700 [&>span:first-child>span]:bg-blue-600 [&>span:first-child>span]:hover:bg-blue-700"
-          />
-          <p className="text-sm text-gray-400 mt-2">
-                위험 감수 수준을 조절하여 투자 성향에 맞는 포트폴리오를 추천받으세요.
-                (낮음: 0-29%, 보통: 30-69%, 높음: 70-100%)
-            </p>
-            <Button onClick={handleRecommendPortfolio} className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-md transition-colors duration-200">
-                포트폴리오 추천받기
-            </Button>
-        </div>
-
-        <Separator className="bg-gray-700" />
-
-        {/* 추천 포트폴리오 */}
-        <div>
-          <h3 className="text-xl font-semibold text-white mb-4">추천 포트폴리오 구성</h3>
-          {recommendedPortfolio ? (
-            // 이 div에 overflow-x-auto 클래스를 추가하여 가로 스크롤을 활성화하고 hide-scrollbar를 추가하여 스크롤바를 숨깁니다.
-            <div className="overflow-x-auto rounded-lg border border-[#3C4A5C] shadow-md hide-scrollbar">
-              <Table>
-                <TableHeader className="bg-[#2A3445]">
-                  <TableRow className="border-gray-600">
-                    <TableHead className="text-gray-300 min-w-[120px] py-3 px-4">종목명</TableHead>
-                    <TableHead className="text-gray-300 min-w-[80px] py-3 px-4">유형</TableHead>
-                    <TableHead className="text-gray-300 min-w-[60px] py-3 px-4">비중</TableHead>
-                    <TableHead className="text-gray-300 min-w-[100px] py-3 px-4">예상 수익률</TableHead>
-                    <TableHead className="text-gray-300 min-w-[80px] py-3 px-4">위험도</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recommendedPortfolio.map((item, index) => (
-                    <TableRow key={index} className="border-gray-700 hover:bg-gray-700/50">
-                      <TableCell className="font-medium text-white whitespace-nowrap py-3 px-4">{item.name}</TableCell>
-                      <TableCell className="text-gray-300 whitespace-nowrap py-3 px-4">{item.type}</TableCell>
-                      <TableCell className="text-blue-400 font-semibold whitespace-nowrap py-3 px-4">{item.weight}%</TableCell>
-                      <TableCell className="text-green-400 whitespace-nowrap py-3 px-4">{item.expectedReturn}</TableCell>
-                      <TableCell className="text-red-400 whitespace-nowrap py-3 px-4">{item.risk}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <p className="mt-4 text-sm text-gray-400 p-4">
-                * 위 포트폴리오는 일반적인 투자 성향에 따른 예시이며, 실제 투자 추천이 아닙니다.
-                투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다.
-              </p>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Left Column: Risk Setting */}
+      <motion.div className="lg:col-span-1" variants={itemVariants}>
+        <Card className="bg-slate-800/50 border-slate-700 h-full">
+          <CardHeader className="text-center">
+            <div className="flex justify-center items-center gap-2">
+              {riskProfile.icon}
+              <CardTitle className={`text-lg font-semibold ${riskProfile.color}`}>{riskProfile.name}</CardTitle>
             </div>
-          ) : (
-            <p className="text-gray-400 text-center">
-              위험 감수 수준을 설정하고 '포트폴리오 추천받기' 버튼을 눌러보세요.
-            </p>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+            <CardDescription className="text-sm text-slate-400">나의 투자 성향 설정</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col justify-center items-center space-y-6 pt-4">
+            <div className="w-full px-4">
+              <Slider
+                id="risk-tolerance"
+                min={0}
+                max={100}
+                step={1}
+                value={riskTolerance}
+                onValueChange={setRiskTolerance}
+                className="[&>span:first-child]:bg-indigo-600"
+              />
+              <div className="flex justify-between text-xs text-slate-500 mt-2">
+                <span>안정</span>
+                <span>중립</span>
+                <span>공격</span>
+              </div>
+            </div>
+            <Button onClick={handleRecommendPortfolio} className="w-full max-w-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold group">
+              포트폴리오 추천받기
+              <Gem className="ml-2 h-4 w-4 group-hover:animate-pulse" />
+            </Button>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Right Column: Recommended Portfolio */}
+      <motion.div className="lg:col-span-2" variants={itemVariants}>
+        <Card className="bg-slate-800/50 border-slate-700 h-full">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-slate-300">추천 포트폴리오</CardTitle>
+            <CardDescription className="text-sm text-slate-400">나만의 투자 조합을 확인하세요.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {recommendedPortfolio ? (
+              <motion.div 
+                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+              >
+                <AnimatePresence>
+                  {recommendedPortfolio.map((item) => (
+                    <motion.div
+                      key={item.id}
+                      variants={itemVariants}
+                      layout
+                      className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50 text-center flex flex-col items-center justify-center aspect-square hover:border-indigo-500/50 transition-colors"
+                    >
+                      <div className="mb-2">{item.icon}</div>
+                      <p className="font-semibold text-slate-200 text-sm">{item.name}</p>
+                      <p className="text-xs text-slate-400">{item.type}</p>
+                      <p className="text-lg font-bold text-indigo-400 mt-2">{item.weight}%</p>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+            ) : (
+              <div className="text-center py-16">
+                <p className="text-slate-400">투자 성향을 설정하고 버튼을 눌러</p>
+                <p className="text-sm text-slate-500 mt-2">나만의 포트폴리오를 추천받으세요.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+    </div>
   );
 };
 
