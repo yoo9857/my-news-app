@@ -187,7 +187,8 @@ class KiwoomAPI:
         stock_codes_str = self.ocx.dynamicCall("GetThemeGroupCode(QString)", numeric_theme_code)
         print(f"  - GetThemeGroupCode 원본 응답: '{stock_codes_str}'")
         if stock_codes_str:
-            result_codes = stock_codes_str.split('|')[:-1] # 마지막 빈 문자열 제거
+            # Split by semicolon and filter out any empty strings
+            result_codes = [code for code in stock_codes_str.split(';') if code]
             print(f"  - 처리된 종목 코드: {result_codes}")
             return result_codes
         print("  - GetThemeGroupCode 응답이 비어 있습니다.")
