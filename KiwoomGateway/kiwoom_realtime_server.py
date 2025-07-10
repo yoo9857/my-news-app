@@ -4,7 +4,30 @@ import time
 import uvicorn
 import asyncio
 import json
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import os
+from datetime import datetime, timedelta
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi.responses import JSONResponse
+
+# 데이터 캐싱 파일 경로
+DATA_FILE_PATH = "./cached_company_data.json"
+CACHE_DURATION_HOURS = 1 # 캐시 유효 시간 (1시간)
+
+# ... (기존 코드)
+
+@app.exception_handler(Exception)
+async def universal_exception_handler(request: Request, exc: Exception):
+    print(f"Unhandled exception: {exc}")
+    import traceback
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error": "An unexpected server error occurred.",
+            "detail": str(exc)
+        },
+    )
 from fastapi.middleware.cors import CORSMiddleware
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QAxContainer import QAxWidget
@@ -49,12 +72,51 @@ class KiwoomAPI:
         self.all_companies_data = []
         self.current_rqname = ""
         self.real_data_queue = real_data_queue # 실시간 데이터를 전달할 큐
+        self.data_loaded_event = asyncio.Event() # 데이터 로딩 완료 이벤트
+
+    def save_data_to_file(self):
+        try:
+            with open(DATA_FILE_PATH, 'w', encoding='utf-8') as f:
+                json.dump({
+                    "timestamp": datetime.now().isoformat(),
+                    "data": self.all_companies_data
+                }, f, ensure_ascii=False, indent=4)
+            print(f"데이터를 {DATA_FILE_PATH}에 성공적으로 저장했습니다.")
+        except Exception as e:
+            print(f"데이터 저장 중 오류 발생: {e}")
+
+    def load_data_from_file(self):
+        if os.path.exists(DATA_FILE_PATH):
+            try:
+                with open(DATA_FILE_PATH, 'r', encoding='utf-8') as f:
+                    content = json.load(f)
+                    timestamp_str = content.get("timestamp")
+                    cached_data = content.get("data", [])
+
+                    if timestamp_str:
+                        cached_timestamp = datetime.fromisoformat(timestamp_str)
+                        # 캐시 유효성 검사
+                        if datetime.now() - cached_timestamp < timedelta(hours=CACHE_DURATION_HOURS):
+                            self.all_companies_data = cached_data
+                            print(f"데이터를 {DATA_FILE_PATH}에서 성공적으로 로드했습니다. (캐시 사용)")
+                            self.data_loaded_event.set() # 캐시 로드 시 이벤트 설정
+                            return True
+                        else:
+                            print("캐시가 만료되었습니다. 새 데이터를 로드합니다.")
+                    else:
+                        print("캐시 파일에 타임스탬프가 없습니다. 새 데이터를 로드합니다.")
+            except json.JSONDecodeError:
+                print("캐시 파일이 손상되었습니다. 새 데이터를 로드합니다.")
+            except Exception as e:
+                print(f"캐시 로드 중 오류 발생: {e}")
+        print("캐시 파일이 없거나 유효하지 않습니다.")
+        return False
 
     def login(self):
         ret = self.ocx.dynamicCall("CommConnect()")
         if ret == 0:
             print("로그인 요청 성공")
-            self.login_event_loop.exec_()
+            self.login_event_loop.exec_() # 로그인 이벤트 루프 실행
         else:
             print("로그인 요청 실패")
 
@@ -64,40 +126,36 @@ class KiwoomAPI:
             self.is_connected = True
         else:
             print(f"로그인 실패: {err_code}")
+            self.is_connected = False
         self.login_event_loop.exit()
 
     def receive_tr_data(self, screen_no, rqname, trcode, record_name, next_key):
         if rqname == self.current_rqname:
             print(f" 올바른 TR 데이터 수신: {rqname}")
-            if rqname == "주식기본정보요청":
-                name = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "종목명").strip()
-                marketCap = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "시가총액").strip()
-                per = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "PER").strip()
-                
-                def get_numeric_data(field_name):
-                    raw_data = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, field_name).strip()
-                    return str(abs(int(raw_data))) if raw_data and raw_data.replace('-', '').isdigit() else "0"
+            def get_numeric_data(field_name):
+                raw_data = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, field_name).strip()
+                return str(abs(int(raw_data))) if raw_data and raw_data.replace('-', '').isdigit() else "0"
 
-                currentPrice = get_numeric_data("현재가")
-                highPrice = get_numeric_data("고가")
-                lowPrice = get_numeric_data("저가")
-                openingPrice = get_numeric_data("시가")
-                change = get_numeric_data("전일대비")
-                changeRate = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "등락율").strip()
-                previousClose = get_numeric_data("전일종가") # 전일종가 추가
+            currentPrice = get_numeric_data("현재가")
+            highPrice = get_numeric_data("고가")
+            lowPrice = get_numeric_data("저가")
+            openingPrice = get_numeric_data("시가")
+            change = get_numeric_data("전일대비")
+            changeRate = self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, 0, "등락율").strip()
+            previousClose = get_numeric_data("전일종가") # 전일종가 추가
 
-                self.tr_data = {
-                    "name": name,
-                    "marketCap": marketCap,
-                    "per": per,
-                    "currentPrice": currentPrice,
-                    "highPrice": highPrice,
-                    "lowPrice": lowPrice,
-                    "openingPrice": openingPrice,
-                    "change": change,
-                    "changeRate": changeRate,
-                    "previousClose": previousClose, # 전일종가 추가
-                }
+            self.tr_data = {
+                "name": name,
+                "marketCap": marketCap,
+                "per": per,
+                "currentPrice": currentPrice,
+                "highPrice": highPrice,
+                "lowPrice": lowPrice,
+                "openingPrice": openingPrice,
+                "change": change,
+                "changeRate": changeRate,
+                "previousClose": previousClose, # 전일종가 추가
+            }
             self.tr_received_event.set()
             print(f"TR Data: {self.tr_data}")
 
@@ -119,18 +177,18 @@ class KiwoomAPI:
         return self.tr_data
 
     def get_theme_group_list(self):
-        themes_raw = self.ocx.dynamicCall("GetThemeGroupList(int)", 1)
-        themes_split = themes_raw.split(';')
+        themes_str = self.ocx.dynamicCall("GetThemeGroupList(int)", 1)
+        themes_split = themes_str.split(';')
         return [{"theme_code": themes_split[i], "theme_name": themes_split[i+1]} for i in range(0, len(themes_split) - 1, 2)]
 
     def get_theme_group_code(self, theme_code):
         numeric_theme_code = theme_code.split('|')[0]
         stock_codes_str = self.ocx.dynamicCall("GetThemeGroupCode(QString)", numeric_theme_code)
         if stock_codes_str:
-            return [code.strip() for code in stock_codes_str.split(';') if code.strip()]
+            return stock_codes_str.split('|')[:-1] # 마지막 빈 문자열 제거
         return []
 
-    def load_all_company_data(self):
+    async def load_all_company_data(self):
         print("모든 기업 정보 로딩을 시작합니다...")
         if not self.is_connected:
             print("API가 연결되지 않아 데이터를 로드할 수 없습니다.")
@@ -144,7 +202,7 @@ class KiwoomAPI:
                     print(f"Processing theme: {theme_name} ({theme_code})")
                     
                     stock_codes = self.get_theme_group_code(theme_code)
-                    time.sleep(0.4)
+                    await asyncio.sleep(0.4) # TR 요청 간 딜레이 (0.2초 이상 권장)
 
                     for code in stock_codes:
                         try:
@@ -153,7 +211,7 @@ class KiwoomAPI:
 
                             print(f"  - Fetching info for stock: {code}")
                             stock_info = self.get_stock_basic_info(code)
-                            time.sleep(0.4)
+                            await asyncio.sleep(0.4)
                             
                             if stock_info:
                                 self.all_companies_data.append({
@@ -169,6 +227,8 @@ class KiwoomAPI:
                     continue
             
             print(f"총 {len(self.all_companies_data)}개의 기업 정보 로딩 완료!")
+            self.save_data_to_file() # 데이터 로딩 완료 후 파일에 저장
+            self.data_loaded_event.set() # 데이터 로딩 완료 이벤트 설정
 
         except Exception as e:
             print(f"An unexpected error occurred during data loading: {e}")
@@ -220,12 +280,26 @@ def read_root():
     return {"message": "Kiwoom API Gateway is running."}
 
 @app.get("/api/all-companies")
-def get_all_companies():
-    if kiwoom_api_instance and kiwoom_api_instance.is_connected:
-        if not kiwoom_api_instance.all_companies_data:
-            return {"success": True, "data": [], "message": "Data is still being loaded. Please try again in a moment."}
+async def get_all_companies():
+    # 먼저 캐시된 데이터를 로드 시도
+    if kiwoom_api_instance.load_data_from_file():
         return {"success": True, "data": kiwoom_api_instance.all_companies_data}
-    return {"success": False, "error": "Kiwoom API is not connected."}
+
+    # 캐시된 데이터가 없거나 유효하지 않으면, API에서 새로 로드
+    if not kiwoom_api_instance.data_loaded_event.is_set():
+        print("캐시된 데이터가 없거나 유효하지 않아 API에서 데이터를 로드합니다.")
+        # load_all_company_data는 startup 이벤트에서 이미 호출되므로, 여기서는 완료될 때까지 대기
+        await kiwoom_api_instance.data_loaded_event.wait() 
+
+    try:
+        if kiwoom_api_instance and kiwoom_api_instance.is_connected:
+            if not kiwoom_api_instance.all_companies_data:
+                return {"success": True, "data": [], "message": "Data is still being loaded. Please try again in a moment."}
+            return {"success": True, "data": kiwoom_api_instance.all_companies_data}
+        return {"success": False, "error": "Kiwoom API is not connected."}
+    except Exception as e:
+        print(f"Error in get_all_companies: {e}")
+        return {"success": False, "error": f"An internal server error occurred: {e}"}
 
 @app.websocket("/ws/realtime-price")
 async def websocket_endpoint(websocket: WebSocket):
@@ -287,19 +361,24 @@ async def real_data_broadcaster():
 
 # --- FastAPI 서버 실행 함수 (별도 스레드에서 실행) ---
 def run_fastapi_server():
-    # FastAPI 앱 시작 시 백그라운드 태스크 실행
+    # 이 스레드에 새로운 asyncio 이벤트 루프를 생성하고 설정합니다.
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
     @app.on_event("startup")
     async def startup_event():
         asyncio.create_task(real_data_broadcaster())
         print("Real-time data broadcaster started.")
+        asyncio.create_task(kiwoom_api_instance.load_all_company_data())
     
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # 명시적으로 생성한 이벤트 루프를 Uvicorn에 전달합니다.
+    uvicorn.run(app, host="0.0.0.0", port=8000, loop=loop)
 
 # --- 메인 실행 로직 ---
 if __name__ == '__main__':
-    # 1. FastAPI 서버를 백그라운드 스레드에서 시작
+    # 1. FastAPI 서버를 별도 스레드에서 실행
     fastapi_thread = threading.Thread(target=run_fastapi_server)
-    fastapi_thread.daemon = True
+    fastapi_thread.daemon = True # 메인 스레드 종료 시 함께 종료되도록 설정
     fastapi_thread.start()
 
     # 2. 메인 스레드에서 PyQt 애플리케이션 및 키움 API 실행
@@ -308,11 +387,8 @@ if __name__ == '__main__':
     kiwoom_api_instance.login()
     
     if kiwoom_api_instance.is_connected:
-        print("키움 API 연결 성공. FastAPI 서버가 8000번 포트에서 실행 중입니다.")
-        # 로그인 성공 후, 백그라운드에서 데이터 로딩 시작
-        data_load_thread = threading.Thread(target=kiwoom_api_instance.load_all_company_data)
-        data_load_thread.daemon = True
-        data_load_thread.start()
+        print("키움 API 연결 성공. FastAPI 서버가 8001번 포트에서 실행 중입니다.")
+        # load_all_company_data는 이제 startup 이벤트에서 비동기로 호출됩니다.
     else:
         print("키움 API 연결 실패. 서버를 종료합니다.")
         sys.exit()
