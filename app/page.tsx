@@ -1,4 +1,5 @@
 // app/page.tsx
+// Force git to recognize change
 'use client';
 
 import React, { useState, useEffect, useRef } from "react";
