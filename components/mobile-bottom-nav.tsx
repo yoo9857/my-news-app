@@ -24,7 +24,7 @@ export default function MobileBottomNav({ activeTab, setActiveTab }: MobileBotto
 
   const handleNavClick = (value: string, isExternal: boolean) => {
     if (isExternal) {
-      router.push(`/${value}`);
+      window.open('https://psychology.onedaytrading.net', '_blank');
     } else {
       setActiveTab(value);
     }
