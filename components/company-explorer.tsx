@@ -29,7 +29,7 @@ const ChangeRateIcon = ({ rate }: { rate: number }) => {
 
 // Header component for the list
 const ListHeader = () => (
-  <div className="flex items-center bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10 h-12 px-4 border-b border-slate-700 font-semibold text-slate-300 text-sm">
+  <div className="flex items-center bg-slate-900/80 flex-shrink-0 h-12 px-4 border-b border-slate-700 font-semibold text-slate-300 text-sm">
     <div className="w-[40%]">종목명</div>
     <div className="w-[20%] text-right">현재가</div>
     <div className="w-[20%] text-right">등락률</div>
@@ -102,11 +102,11 @@ export default function CompanyExplorer({ stockData, isLoading, fetchError }: Co
         </Tabs>
       </div>
 
-      {/* --- Virtualized List --- */}
-      <div className="flex-grow rounded-lg border border-slate-700/50 overflow-hidden">
-        <div ref={parentRef} className="h-full overflow-auto">
+      {/* --- Virtualized List Container --- */}
+      <div className="flex-grow rounded-lg border border-slate-700/50 overflow-hidden flex flex-col">
+        <ListHeader />
+        <div ref={parentRef} className="flex-grow overflow-auto">
           <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
-            <ListHeader />
             {rowVirtualizer.getVirtualItems().map(virtualItem => {
               const stock = filteredCompanies[virtualItem.index];
               const rate = parseFloat(stock.changeRate);
