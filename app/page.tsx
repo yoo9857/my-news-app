@@ -11,7 +11,8 @@ import CompanyExplorer from "@/components/company-explorer";
 import RealTimeNews from "@/components/real-time-news";
 import InvestmentCalculators from "@/components/InvestmentCalculators";
 import DailyInvestmentPlan from "@/components/daily-plan";
-import WisePortfolio from "@/components/portfolio-recommendation";
+import WisePortfolio from "@/components/wise-portfolio";
+import PortfolioCustomizer from "@/components/portfolio-customizer";
 import { useIsMobile } from '@/hooks/use-mobile';
 import MobileBottomNav from '@/components/mobile-bottom-nav';
 import { StockInfo, RealTimeStockData } from '@/lib/types';
@@ -148,7 +149,12 @@ export default function KoreanStockPlatform() {
             <ContentWrapper><DailyInvestmentPlan /></ContentWrapper>
           </TabsContent>
           <TabsContent value="portfolio">
-            <ContentWrapper><WisePortfolio /></ContentWrapper>
+            <ContentWrapper>
+              <div className="space-y-8">
+                <WisePortfolio stockData={stockData} />
+                <PortfolioCustomizer />
+              </div>
+            </ContentWrapper>
           </TabsContent>
         </Tabs>
       </main>

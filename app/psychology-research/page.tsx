@@ -7,19 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ArrowRight, BrainCircuit, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// New component for the starlight background
-const StarlightBackground = () => {
+// Background component that mimics an old, enchanted library
+const EnchantedLibraryBackground = () => {
   return (
-    <div className="fixed inset-0 -z-10 h-full w-full bg-gradient-to-b from-[#0c0a1d] to-[#1d1a3d]">
-      {/* You can add more complex star animations here if needed */}
-      <div className="absolute inset-0 opacity-30">
-        {/* Static stars for performance */}
-        <div className="absolute top-[20%] left-[10%] h-1 w-1 rounded-full bg-white/80 shadow-[0_0_10px_2px_#fff]"></div>
-        <div className="absolute top-[50%] left-[80%] h-1 w-1 rounded-full bg-white/80 shadow-[0_0_8px_1px_#fff]"></div>
-        <div className="absolute top-[80%] left-[30%] h-1 w-1 rounded-full bg-white/70 shadow-[0_0_12px_2px_#fff]"></div>
-        <div className="absolute top-[10%] left-[90%] h-0.5 w-0.5 rounded-full bg-white/60 shadow-[0_0_6px_1px_#fff]"></div>
-        <div className="absolute top-[60%] left-[5%] h-0.5 w-0.5 rounded-full bg-white/60 shadow-[0_0_6px_1px_#fff]"></div>
-      </div>
+    <div className="fixed inset-0 -z-10 h-full w-full bg-gradient-to-br from-[#2d1e1a] via-[#1a110e] to-[#0c0807]">
+      <div 
+        className="absolute inset-0 opacity-10" 
+        style={{
+          backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23a0522d\' fill-opacity=\'0.4\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'%3E%3C/path%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+        }}
+      />
     </div>
   );
 };
@@ -35,8 +32,8 @@ const itemVariants: Variants = {
 
 export default function PsychologyResearchHomePage() {
   return (
-    <div className="min-h-screen text-slate-200 p-4 sm:p-8 flex flex-col items-center justify-center relative overflow-hidden">
-      <StarlightBackground />
+    <div className="min-h-screen text-amber-100 p-4 sm:p-8 flex flex-col items-center justify-center relative overflow-hidden font-serif">
+      <EnchantedLibraryBackground />
       
       <motion.div 
         className="text-center mb-12"
@@ -44,50 +41,76 @@ export default function PsychologyResearchHomePage() {
         animate="visible"
         variants={itemVariants}
       >
-        <Sparkles className="h-12 w-12 text-yellow-300/80 mx-auto mb-4" />
-        <h1 className="text-3xl sm:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-br from-yellow-200 via-yellow-300 to-yellow-500 tracking-wide">
-          별빛 서재
+        <Sparkles className="h-12 w-12 text-amber-400/80 mx-auto mb-4" />
+        <h1 className="text-3xl sm:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 tracking-wider">
+          마법 심리 연구소
         </h1>
-        <p className="text-base sm:text-lg text-slate-400 max-w-xl">
-          내면의 우주를 탐험하고, 당신의 별자리를 찾아보세요.
+        <p className="text-base sm:text-lg text-stone-400 max-w-xl">
+          고대의 지혜를 통해 당신의 내면을 탐험하세요.
         </p>
       </motion.div>
 
       <motion.div 
+        className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8"
         initial="hidden"
         animate="visible"
         variants={itemVariants}
-        whileHover={{ y: -8, scale: 1.03 }}
-        transition={{ type: "spring", stiffness: 200, damping: 15 }}
-        className="w-full max-w-md"
       >
+        {/* TCI Test Card */}
         <Link href="/psychology-research/tci-test" passHref legacyBehavior>
           <a className="block h-full">
             <Card className={cn(
-              "group relative cursor-pointer overflow-hidden rounded-2xl shadow-2xl shadow-black/50",
-              "border border-yellow-300/20 bg-slate-900/60 backdrop-blur-md",
-              "transition-all duration-300 hover:border-yellow-300/50 hover:shadow-yellow-300/10"
+              "group relative cursor-pointer overflow-hidden rounded-lg shadow-2xl shadow-black/50",
+              "border border-amber-900/50 bg-gradient-to-br from-amber-50 to-amber-100",
+              "transition-all duration-300 hover:border-amber-800/80 hover:shadow-amber-900/20 hover:scale-105"
             )}>
-              <div className="absolute top-0 left-0 w-full h-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                   style={{
-                     background: "radial-gradient(circle at 50% 50%, rgba(253, 224, 71, 0.1), transparent 70%)"
-                   }} />
-              <CardHeader className="relative text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-yellow-300/30 bg-slate-800/80">
-                  <BrainCircuit className="h-8 w-8 text-yellow-300/90" />
+              <CardHeader className="relative text-center text-stone-800">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-amber-800/30 bg-amber-100/50">
+                  <BrainCircuit className="h-8 w-8 text-amber-900/80" />
                 </div>
-                <CardTitle className="text-lg sm:text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-yellow-400">
+                <CardTitle className="text-lg sm:text-xl font-bold text-stone-900">
                   TCI 기질 및 성격 검사
                 </CardTitle>
-                <CardDescription className="text-slate-400 mt-1">고대의 지혜와 현대 과학의 만남</CardDescription>
+                <CardDescription className="text-stone-600 mt-1">타고난 기질과 형성된 성격 분석</CardDescription>
               </CardHeader>
               <CardContent className="relative text-center">
-                <p className="text-sm text-slate-300 px-4">
+                <p className="text-sm text-stone-700 px-4">
                   타고난 기질과 삶을 통해 형성된 성격을 분석하여, 당신의 고유한 잠재력과 가능성을 발견합니다.
                 </p>
                 <div className="mt-8 mb-2">
-                  <div className="inline-flex items-center justify-center rounded-full bg-yellow-400/10 px-6 py-3 text-sm font-semibold text-yellow-300 transition-colors group-hover:bg-yellow-400/20">
-                    여정 시작하기 <ArrowRight size={16} className="ml-2 transition-transform group-hover:translate-x-1" />
+                  <div className="inline-flex items-center justify-center rounded-md bg-red-800 px-6 py-3 text-sm font-semibold text-amber-200 transition-all duration-300 group-hover:bg-red-700 group-hover:shadow-lg group-hover:shadow-red-900/50">
+                    TCI 시작하기 <ArrowRight size={16} className="ml-2 transition-transform group-hover:translate-x-1" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </a>
+        </Link>
+
+        {/* MBTI Test Card */}
+        <Link href="/psychology-research/mbti-test" passHref legacyBehavior>
+          <a className="block h-full">
+            <Card className={cn(
+              "group relative cursor-pointer overflow-hidden rounded-lg shadow-2xl shadow-black/50",
+              "border border-teal-900/50 bg-gradient-to-br from-teal-50 to-teal-100",
+              "transition-all duration-300 hover:border-teal-800/80 hover:shadow-teal-900/20 hover:scale-105"
+            )}>
+              <CardHeader className="relative text-center text-stone-800">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-teal-800/30 bg-teal-100/50">
+                  <Sparkles className="h-8 w-8 text-teal-900/80" />
+                </div>
+                <CardTitle className="text-lg sm:text-xl font-bold text-stone-900">
+                  MBTI 성격 유형 검사
+                </CardTitle>
+                <CardDescription className="text-stone-600 mt-1">에너지 방향과 인식, 판단 방식 분석</CardDescription>
+              </CardHeader>
+              <CardContent className="relative text-center">
+                <p className="text-sm text-stone-700 px-4">
+                  4가지 선호 지표를 통해 16가지 성격 유형 중 당신은 어디에 속하는지 알아보고, 행동 양식을 이해합니다.
+                </p>
+                <div className="mt-8 mb-2">
+                  <div className="inline-flex items-center justify-center rounded-md bg-cyan-800 px-6 py-3 text-sm font-semibold text-teal-200 transition-all duration-300 group-hover:bg-cyan-700 group-hover:shadow-lg group-hover:shadow-cyan-900/50">
+                    MBTI 시작하기 <ArrowRight size={16} className="ml-2 transition-transform group-hover:translate-x-1" />
                   </div>
                 </div>
               </CardContent>
