@@ -5,7 +5,6 @@ import { useDebounce } from 'use-debounce';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StockInfo } from '@/lib/types';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -27,6 +26,16 @@ const ChangeRateIcon = ({ rate }: { rate: number }) => {
   if (rate < 0) return <ArrowDown size={14} className="inline-block mr-1 text-red-400" />;
   return null;
 };
+
+// Header component for the list
+const ListHeader = () => (
+  <div className="flex items-center bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10 h-12 px-4 border-b border-slate-700 font-semibold text-slate-300 text-sm">
+    <div className="w-[40%]">종목명</div>
+    <div className="w-[20%] text-right">현재가</div>
+    <div className="w-[20%] text-right">등락률</div>
+    <div className="w-[20%] text-right">거래량</div>
+  </div>
+);
 
 export default function CompanyExplorer({ stockData, isLoading, fetchError }: CompanyExplorerProps) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,7 +60,7 @@ export default function CompanyExplorer({ stockData, isLoading, fetchError }: Co
   const rowVirtualizer = useVirtualizer({
     count: filteredCompanies.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 57, // Row height in pixels
+    estimateSize: () => 52, // Row height in pixels
     overscan: 10,
   });
 
@@ -76,6 +85,7 @@ export default function CompanyExplorer({ stockData, isLoading, fetchError }: Co
   
   return (
     <div className="flex flex-col h-full">
+      {/* --- Controls --- */}
       <div className="flex flex-col sm:flex-row gap-4 mb-4">
         <Input 
           placeholder="종목명 또는 코드로 검색..." 
@@ -91,46 +101,45 @@ export default function CompanyExplorer({ stockData, isLoading, fetchError }: Co
           </TabsList>
         </Tabs>
       </div>
-      <div ref={parentRef} className="flex-grow rounded-lg border border-slate-700/50 overflow-auto">
-        <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, minWidth: '640px', position: 'relative' }}>
-          <Table>
-            <TableHeader className="sticky top-0 bg-slate-900/80 backdrop-blur-sm z-10">
-              <TableRow className="border-slate-700 hover:bg-slate-900/80">
-                <TableHead className="text-slate-300 pl-4" style={{ width: '280px' }}>종목명</TableHead>
-                <TableHead className="text-right text-slate-300" style={{ width: '120px' }}>현재가</TableHead>
-                <TableHead className="text-right text-slate-300" style={{ width: '120px' }}>등락률</TableHead>
-                <TableHead className="text-right text-slate-300 pr-4" style={{ width: '120px' }}>거래량</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rowVirtualizer.getVirtualItems().map(virtualItem => {
-                const stock = filteredCompanies[virtualItem.index];
-                const rate = parseFloat(stock.changeRate);
-                return (
-                  <TableRow 
-                    key={virtualItem.key}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: `${virtualItem.size}px`,
-                      transform: `translateY(${virtualItem.start}px)`,
-                    }}
-                    className="border-b border-slate-800 hover:bg-slate-800/50"
-                  >
-                    <TableCell className="font-medium text-slate-200 truncate pl-4">{stock.name} <span className="text-slate-500 text-xs">({stock.stockCode})</span></TableCell>
-                    <TableCell className="text-right text-slate-200 font-mono">{parseInt(stock.currentPrice, 10).toLocaleString()}원</TableCell>
-                    <TableCell className={`text-right font-semibold ${getChangeRateColor(rate)}`}>
-                      <ChangeRateIcon rate={rate} />
-                      {stock.changeRate}%
-                    </TableCell>
-                    <TableCell className="text-right text-slate-400 font-mono pr-4">{parseInt(stock.volume, 10).toLocaleString()}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+
+      {/* --- Virtualized List --- */}
+      <div className="flex-grow rounded-lg border border-slate-700/50 overflow-hidden">
+        <div ref={parentRef} className="h-full overflow-auto">
+          <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
+            <ListHeader />
+            {rowVirtualizer.getVirtualItems().map(virtualItem => {
+              const stock = filteredCompanies[virtualItem.index];
+              const rate = parseFloat(stock.changeRate);
+              return (
+                <div
+                  key={virtualItem.key}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: `${virtualItem.size}px`,
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                  className="flex items-center px-4 border-b border-slate-800 hover:bg-slate-800/50"
+                >
+                  <div className="w-[40%] font-medium text-slate-200 truncate">
+                    {stock.name} <span className="text-slate-500 text-xs">({stock.stockCode})</span>
+                  </div>
+                  <div className="w-[20%] text-right text-slate-200 font-mono">
+                    {parseInt(stock.currentPrice, 10).toLocaleString()}원
+                  </div>
+                  <div className={`w-[20%] text-right font-semibold ${getChangeRateColor(rate)}`}>
+                    <ChangeRateIcon rate={rate} />
+                    {stock.changeRate}%
+                  </div>
+                  <div className="w-[20%] text-right text-slate-400 font-mono">
+                    {parseInt(stock.volume, 10).toLocaleString()}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
