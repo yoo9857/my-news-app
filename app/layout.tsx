@@ -3,6 +3,7 @@ import './globals.css'; // 전역 스타일 임포트
 import { Noto_Sans_KR } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider'; // ThemeProvider 임포트
 import { Toaster } from "@/components/ui/toaster"; // Toaster 컴포넌트 임포트
+import Footer from '@/components/footer'; // Footer 컴포넌트 임포트
 
 const notoSansKr = Noto_Sans_KR({
   subsets: ['latin'],
@@ -35,7 +36,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <div className="relative flex min-h-screen flex-col">
+            <main className="flex-1">{children}</main>
+            <Footer />
+          </div>
           <Toaster /> {/* 토스트 알림을 위한 Toaster 컴포넌트 추가 */}
         </ThemeProvider>
       </body>

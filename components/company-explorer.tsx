@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StockInfo } from '@/lib/types';
 
 interface CompanyExplorerProps {
@@ -30,16 +31,24 @@ const ChangeRateIcon = ({ rate }: { rate: number }) => {
 
 export default function CompanyExplorer({ stockData, isLoading, fetchError }: CompanyExplorerProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm] = useDebounce(searchTerm, 500);
+  const [marketFilter, setMarketFilter] = useState<'ALL' | 'KOSPI' | 'KOSDAQ'>('ALL');
+  const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
 
   const filteredCompanies = useMemo(() => {
-    if (!debouncedSearchTerm) return stockData;
+    let companies = stockData;
+
+    if (marketFilter !== 'ALL') {
+      companies = companies.filter(company => company.market === marketFilter);
+    }
+
+    if (!debouncedSearchTerm) return companies;
+    
     const lowerCaseSearchTerm = debouncedSearchTerm.toLowerCase();
-    return stockData.filter(
+    return companies.filter(
       company => company.name.toLowerCase().includes(lowerCaseSearchTerm) || 
                  company.stockCode.includes(lowerCaseSearchTerm)
     );
-  }, [stockData, debouncedSearchTerm]);
+  }, [stockData, debouncedSearchTerm, marketFilter]);
 
   if (isLoading) {
     return (
@@ -66,12 +75,21 @@ export default function CompanyExplorer({ stockData, isLoading, fetchError }: Co
   
   return (
     <div className="flex flex-col h-full">
-      <Input 
-        placeholder="종목명 또는 코드로 검색..." 
-        value={searchTerm} 
-        onChange={e => setSearchTerm(e.target.value)}
-        className="bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-indigo-500 mb-4"
-      />
+      <div className="flex flex-col sm:flex-row gap-4 mb-4">
+        <Input 
+          placeholder="종목명 또는 코드로 검색..." 
+          value={searchTerm} 
+          onChange={e => setSearchTerm(e.target.value)}
+          className="flex-grow bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-indigo-500"
+        />
+        <Tabs defaultValue="ALL" onValueChange={(value) => setMarketFilter(value as any)} className="w-full sm:w-auto">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="ALL">전체</TabsTrigger>
+            <TabsTrigger value="KOSPI">코스피</TabsTrigger>
+            <TabsTrigger value="KOSDAQ">코스닥</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
       <ScrollArea className="flex-grow border border-slate-700/50 rounded-lg">
         <Table>
           <TableHeader className="sticky top-0 bg-slate-900/80 backdrop-blur-sm">
