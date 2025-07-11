@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useDebounce } from 'use-debounce';
 import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StockInfo } from '@/lib/types';
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 interface CompanyExplorerProps {
   stockData: StockInfo[];
@@ -50,6 +51,15 @@ export default function CompanyExplorer({ stockData, isLoading, fetchError }: Co
     );
   }, [stockData, debouncedSearchTerm, marketFilter]);
 
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: filteredCompanies.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 57, // Estimate row height
+    overscan: 5,
+  });
+
   if (isLoading) {
     return (
       <div className="flex flex-col justify-center items-center h-full text-center">
@@ -64,7 +74,7 @@ export default function CompanyExplorer({ stockData, isLoading, fetchError }: Co
     return (
       <div className="flex flex-col justify-center items-center h-full text-center">
         <AlertTriangle className="h-10 w-10 text-red-500 mb-4" />
-        <p className="text-red-400 font-semibold">데이터 로딩 실패</p>
+        <p className="text-red-400 font-semibold">데이터 ��딩 실패</p>
         <p className="text-slate-400 mt-2 text-sm">서버 연결에 문제가 발생했습니다.</p>
         <Button onClick={() => window.location.reload()} className="mt-4 bg-indigo-600 hover:bg-indigo-700">
           새로고침
@@ -90,9 +100,9 @@ export default function CompanyExplorer({ stockData, isLoading, fetchError }: Co
           </TabsList>
         </Tabs>
       </div>
-      <ScrollArea className="flex-grow border border-slate-700/50 rounded-lg">
+      <div ref={parentRef} className="flex-grow border border-slate-700/50 rounded-lg overflow-auto">
         <Table>
-          <TableHeader className="sticky top-0 bg-slate-900/80 backdrop-blur-sm">
+          <TableHeader className="sticky top-0 bg-slate-900/80 backdrop-blur-sm z-10">
             <TableRow className="border-slate-700">
               <TableHead className="text-slate-300">종목명</TableHead>
               <TableHead className="text-right text-slate-300">현재가</TableHead>
@@ -100,11 +110,23 @@ export default function CompanyExplorer({ stockData, isLoading, fetchError }: Co
               <TableHead className="text-right text-slate-300">거래량</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {filteredCompanies.map(stock => {
+          <TableBody style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
+            {rowVirtualizer.getVirtualItems().map(virtualItem => {
+              const stock = filteredCompanies[virtualItem.index];
               const rate = parseFloat(stock.changeRate);
               return (
-                <TableRow key={stock.stockCode} className="border-slate-800 hover:bg-slate-800/50">
+                <TableRow 
+                  key={virtualItem.key}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: `${virtualItem.size}px`,
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                  className="border-slate-800 hover:bg-slate-800/50"
+                >
                   <TableCell className="font-medium text-slate-200">{stock.name} <span className="text-slate-500">({stock.stockCode})</span></TableCell>
                   <TableCell className="text-right text-slate-200">{parseInt(stock.currentPrice, 10).toLocaleString()}원</TableCell>
                   <TableCell className={`text-right font-semibold ${getChangeRateColor(rate)}`}>
@@ -117,7 +139,7 @@ export default function CompanyExplorer({ stockData, isLoading, fetchError }: Co
             })}
           </TableBody>
         </Table>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
