@@ -117,7 +117,7 @@ const WisePortfolio: React.FC<WisePortfolioProps> = ({ stockData }) => {
   }, [riskTolerance]);
 
   const handleRecommendPortfolio = () => {
-    if (stockData.length === 0) {
+    if (!Array.isArray(stockData) || stockData.length === 0) {
       toast({
         variant: "destructive",
         title: "데이터 부족",

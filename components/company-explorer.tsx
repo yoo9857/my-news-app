@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useDebounce } from 'use-debounce';
 import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -29,15 +30,16 @@ const ChangeRateIcon = ({ rate }: { rate: number }) => {
 
 export default function CompanyExplorer({ stockData, isLoading, fetchError }: CompanyExplorerProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm] = useDebounce(searchTerm, 500);
 
   const filteredCompanies = useMemo(() => {
-    if (!searchTerm) return stockData;
-    const lowerCaseSearchTerm = searchTerm.toLowerCase();
+    if (!debouncedSearchTerm) return stockData;
+    const lowerCaseSearchTerm = debouncedSearchTerm.toLowerCase();
     return stockData.filter(
       company => company.name.toLowerCase().includes(lowerCaseSearchTerm) || 
                  company.stockCode.includes(lowerCaseSearchTerm)
     );
-  }, [stockData, searchTerm]);
+  }, [stockData, debouncedSearchTerm]);
 
   if (isLoading) {
     return (

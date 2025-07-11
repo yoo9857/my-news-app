@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useDebouncedCallback } from 'use-debounce';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Loader2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Search, Loader2, TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { NewsItem } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
@@ -59,19 +60,24 @@ export default function RealTimeNews() {
     }
   }, [toast]);
 
+  const debouncedFetchNews = useDebouncedCallback(fetchNews, 500);
+
   useEffect(() => {
-    fetchNews("코스피, 경제, 증시");
-    const interval = setInterval(() => fetchNews("코스피, 경제, 증시"), 3 * 60 * 1000);
-    return () => clearInterval(interval);
+    fetchNews("속보");
   }, [fetchNews]);
 
   const handleSearch = () => {
     if (!searchTerm.trim()) {
-      toast({ title: "검색 오류", description: "검색어를 입력해주세요."});
-      return;
+      fetchNews("속보");
+    } else {
+      debouncedFetchNews(searchTerm.trim());
     }
-    fetchNews(searchTerm.trim());
   };
+
+  const handleRefresh = useDebouncedCallback(() => {
+      fetchNews(searchTerm.trim() || "속보");
+      toast({ title: "뉴스 새로고침", description: "최신 뉴스를 불러왔습니다." });
+  }, 500);
   
   const filteredNews = useMemo(() => {
     if (sentimentFilter === '전체') return news;
@@ -85,25 +91,29 @@ export default function RealTimeNews() {
           <Input
             placeholder="관심 키워드 검색 (예: 금리, AI)"
             value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            onKeyPress={e => { if (e.key === 'Enter') handleSearch(); }}
+            onChange={e => {
+              setSearchTerm(e.target.value);
+              handleSearch();
+            }}
             className="bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-indigo-500"
           />
-          <Button onClick={handleSearch} disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-700">
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+        </div>
+        <div className="flex gap-2">
+          <Select value={sentimentFilter} onValueChange={setSentimentFilter}>
+            <SelectTrigger className="w-full sm:w-[150px] bg-slate-800 border-slate-600 text-slate-200 focus:border-indigo-500 focus:ring-indigo-500">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
+              <SelectItem value="전체">전체 감성</SelectItem>
+              <SelectItem value="긍정적">긍정적</SelectItem>
+              <SelectItem value="중립적">중립적</SelectItem>
+              <SelectItem value="부정적">부정적</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={handleRefresh} disabled={isLoading} variant="outline" className="bg-slate-800 border-slate-600">
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
         </div>
-        <Select value={sentimentFilter} onValueChange={setSentimentFilter}>
-          <SelectTrigger className="w-full sm:w-[180px] bg-slate-800 border-slate-600 text-slate-200 focus:border-indigo-500 focus:ring-indigo-500">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
-            <SelectItem value="전체">전체 감성</SelectItem>
-            <SelectItem value="긍정적">긍정적</SelectItem>
-            <SelectItem value="중립적">중립적</SelectItem>
-            <SelectItem value="부정적">부정적</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {isLoading && news.length === 0 ? (

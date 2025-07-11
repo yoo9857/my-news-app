@@ -1,0 +1,5 @@
+2025-07-11 21:50:44,863 - security - WARNING - Rate limit exceeded for IP: 127.0.0.1 on path: /api/all-companies
+2025-07-11 21:50:44,866 - security - WARNING - Rate limit exceeded for IP: 127.0.0.1 on path: /api/all-companies
+2025-07-11 21:50:49,556 - security - WARNING - Rate limit exceeded for IP: 127.0.0.1 on path: /api/all-companies
+2025-07-11 21:50:49,557 - security - WARNING - Rate limit exceeded for IP: 127.0.0.1 on path: /api/all-companies
+2025-07-11 23:23:07,619 - security - WARNING - Rate limit exceeded for IP: 127.0.0.1 on path: /api/all-companies
