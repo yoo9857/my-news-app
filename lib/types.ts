@@ -4,6 +4,7 @@
 export interface StockInfo {
   stockCode: string;
   name: string;
+  market: string; // 시장 구분 (KOSPI, KOSDAQ)
   marketCap: string;
   per: string;
   volume: string;
