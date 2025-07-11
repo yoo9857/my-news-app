@@ -2,39 +2,38 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(req: NextRequest) {
-  const url = req.nextUrl.clone(); // 요청 URL을 복제합니다.
+  const url = req.nextUrl.clone();
   const { hostname } = url;
+  const rootDomain = 'onedaytrading.net';
 
-  // 루트 도메인을 환경 변수에서 가져오거나 기본값을 사용합니다.
-  // 예: onedaytrading.net
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'onedaytrading.net';
+  // 호스트 이름이 루트 도메인 자체이거나 www 같은 일반적인 서브도메인이면 처리를 중단합니다.
+  if (hostname === rootDomain || hostname === `www.${rootDomain}`) {
+    return NextResponse.next();
+  }
 
-  // 서브도메인을 추출합니다. (예: 'psychology')
   const subdomain = hostname.replace(`.${rootDomain}`, '');
 
-  // psychology 서브도메인으로 접속한 경우
+  // 'psychology' 서브도메인으로 접속한 경우
   if (subdomain === 'psychology') {
-    // 경로가 이미 /psychology-research로 시작하지 않는 경우에만 추가합니다.
-    if (!url.pathname.startsWith('/psychology-research')) {
-      url.pathname = `/psychology-research${url.pathname}`;
-    }
+    // 요청 경로를 /psychology-research 로 재작성합니다.
+    // 예: psychology-research.onedaytrading.net/tci-test -> onedaytrading.net/psychology-research/tci-test
+    url.pathname = `/psychology-research${url.pathname}`;
     return NextResponse.rewrite(url);
   }
 
-  // 그 외의 다른 요청은 그대로 통과시킵니다.
+  // 다른 서브도메인이나 처리 규칙이 필요하다면 여기에 추가할 수 있습니다.
+
   return NextResponse.next();
 }
 
 export const config = {
-  // 미들웨어가 실행될 경로를 지정합니다.
-  // 모든 경로에서 실행되도록 설정하여 서브도메인을 감지합니다.
   matcher: [
     /*
-     * 아래와 일치하는 경로를 제외한 모든 요청 경로와 일치합니다:
-     * - api (API 라우트)
-     * - _next/static (정적 파일)
-     * - _next/image (이미지 최적화 파일)
-     * - favicon.ico (파비콘 파일)
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
      */
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
