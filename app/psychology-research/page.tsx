@@ -57,7 +57,7 @@ export default function PsychologyResearchHomePage() {
         variants={itemVariants}
       >
         {/* TCI Test Card */}
-        <Link href="/psychology-research/tci-test" passHref legacyBehavior>
+        <Link href="tci-test" passHref legacyBehavior>
           <a className="block h-full">
             <Card className={cn(
               "group relative cursor-pointer overflow-hidden rounded-lg shadow-2xl shadow-black/50",
@@ -71,7 +71,7 @@ export default function PsychologyResearchHomePage() {
                 <CardTitle className="text-lg sm:text-xl font-bold text-stone-900">
                   TCI 기질 및 성격 검사
                 </CardTitle>
-                <CardDescription className="text-stone-600 mt-1">타고난 기질과 형성된 성격 분석</CardDescription>
+                <CardDescription className="text-stone-600 mt-1">타고난 기질과 ���성된 성격 분석</CardDescription>
               </CardHeader>
               <CardContent className="relative text-center">
                 <p className="text-sm text-stone-700 px-4">
@@ -88,7 +88,7 @@ export default function PsychologyResearchHomePage() {
         </Link>
 
         {/* MBTI Test Card */}
-        <Link href="/psychology-research/mbti-test" passHref legacyBehavior>
+        <Link href="mbti-test" passHref legacyBehavior>
           <a className="block h-full">
             <Card className={cn(
               "group relative cursor-pointer overflow-hidden rounded-lg shadow-2xl shadow-black/50",
