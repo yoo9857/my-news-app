@@ -92,14 +92,14 @@ export default function CompanyExplorer({ stockData, isLoading, fetchError }: Co
         </Tabs>
       </div>
       <div ref={parentRef} className="flex-grow rounded-lg border border-slate-700/50 overflow-auto">
-        <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
-          <Table className="table-fixed">
+        <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, minWidth: '640px', position: 'relative' }}>
+          <Table>
             <TableHeader className="sticky top-0 bg-slate-900/80 backdrop-blur-sm z-10">
               <TableRow className="border-slate-700 hover:bg-slate-900/80">
-                <TableHead className="text-slate-300 w-[40%] pl-4">종목명</TableHead>
-                <TableHead className="text-right text-slate-300 w-[20%]">현재가</TableHead>
-                <TableHead className="text-right text-slate-300 w-[20%]">등락률</TableHead>
-                <TableHead className="text-right text-slate-300 w-[20%] pr-4">거래량</TableHead>
+                <TableHead className="text-slate-300 pl-4" style={{ width: '280px' }}>종목명</TableHead>
+                <TableHead className="text-right text-slate-300" style={{ width: '120px' }}>현재가</TableHead>
+                <TableHead className="text-right text-slate-300" style={{ width: '120px' }}>등락률</TableHead>
+                <TableHead className="text-right text-slate-300 pr-4" style={{ width: '120px' }}>거래량</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
