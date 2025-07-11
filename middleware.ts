@@ -14,9 +14,10 @@ export function middleware(req: NextRequest) {
 
   // psychology 서브도메인으로 접속한 경우
   if (subdomain === 'psychology') {
-    // 사용자의 URL은 그대로 둔 채, 내부적으로 /psychology-research 경로의 콘텐츠를 보여줍니다.
-    // 예를 들어 psychology.onedaytrading.net/mbti-test -> /psychology-research/mbti-test 로 재작성됩니다.
-    url.pathname = `/psychology-research${url.pathname}`;
+    // 경로가 이미 /psychology-research로 시작하지 않는 경우에만 추가합니다.
+    if (!url.pathname.startsWith('/psychology-research')) {
+      url.pathname = `/psychology-research${url.pathname}`;
+    }
     return NextResponse.rewrite(url);
   }
 
