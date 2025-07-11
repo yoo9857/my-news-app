@@ -126,8 +126,16 @@ export default function TciTestPage() {
             });
             maxGroupScore += subfactorQuestions.length * 5;
         });
-        const key = group.split(' ')[0];
-        const interpretation = groupScore > maxGroupScore / 2 ? interpretations[key as keyof typeof interpretations].high : interpretations[key as keyof typeof interpretations].low;
+        const key = group.split(' (')[0];
+        const interpretationEntry = interpretations[key as keyof typeof interpretations];
+        
+        if (!interpretationEntry) {
+            console.error(`Interpretation not found for key: ${key}`);
+            // Provide a default or skip this entry to prevent crashing
+            return;
+        }
+
+        const interpretation = groupScore > maxGroupScore / 2 ? interpretationEntry.high : interpretationEntry.low;
         scores[group] = { score: groupScore, maxScore: maxGroupScore, interpretation };
     });
     return scores;
@@ -217,13 +225,33 @@ export default function TciTestPage() {
 
   return (
     <div className="min-h-screen p-4 sm:p-6 md:p-8 relative z-10">
-      <header className="text-center mb-8 sm:mb-12">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <Button asChild variant="ghost" className="absolute top-4 left-4 sm:top-6 sm:left-6 text-indigo-300 hover:bg-indigo-800/50 hover:text-yellow-300">
-            <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" /> 연구소로 돌아가기</Link>
-          </Button>
-          <h1 className="text-3xl sm:text-4xl font-bold text-yellow-200 tracking-wider" style={{ textShadow: '0 0 15px rgba(252, 211, 77, 0.3)' }}>TCI 자가 테스트</h1>
-          <p className="text-md text-indigo-200/80 mt-2 tracking-wider">나를 찾아 떠나는 심연으로의 여행</p>
+      <header className="mb-8 sm:mb-12">
+        <motion.div 
+            initial={{ opacity: 0, y: -20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            transition={{ duration: 0.5 }}
+            className="flex items-center justify-between"
+        >
+            <Button asChild variant="ghost" className="text-indigo-300 hover:bg-indigo-800/50 hover:text-yellow-300">
+                <Link href="/" className="flex items-center">
+                    <ArrowLeft className="h-5 w-5 sm:mr-2" /> 
+                    <span className="hidden sm:inline">돌아가기</span>
+                </Link>
+            </Button>
+            
+            <div className="text-center">
+                <h1 className="text-2xl sm:text-4xl font-bold text-yellow-200 tracking-wider" style={{ textShadow: '0 0 15px rgba(252, 211, 77, 0.3)' }}>
+                    TCI 자가 테스트
+                </h1>
+                <p className="text-xs sm:text-md text-indigo-200/80 mt-2 tracking-wider">나를 찾아 떠나는 심연으로의 여행</p>
+            </div>
+
+            <Button asChild variant="ghost" className="invisible">
+                <Link href="/" className="flex items-center">
+                    <ArrowLeft className="h-5 w-5 sm:mr-2" /> 
+                    <span className="hidden sm:inline">돌아가기</span>
+                </Link>
+            </Button>
         </motion.div>
       </header>
       <main className="container mx-auto max-w-4xl">
