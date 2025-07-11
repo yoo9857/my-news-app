@@ -316,7 +316,9 @@ def run_kiwoom_thread(instance: KiwoomAPI):
 async def get_all_companies():
     if not kiwoom_api_instance.data_loaded_event.is_set():
         await kiwoom_api_instance.data_loaded_event.wait()
-    return {"success": True, "data": kiwoom_api_instance.all_companies_data}
+    
+    content = {"success": True, "data": kiwoom_api_instance.all_companies_data}
+    return JSONResponse(content=content, media_type="application/json; charset=utf-8")
 
 @app.websocket("/ws/realtime-price")
 async def websocket_endpoint(websocket: WebSocket):

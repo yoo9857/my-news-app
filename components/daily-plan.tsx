@@ -1,134 +1,164 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import useLocalStorage from '@/hooks/use-local-storage';
+import { PlusCircle, Trash2, Flag, Edit, Save, Book, StickyNote, ListChecks, ArrowLeft } from 'lucide-react';
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Calendar as CalendarIcon, PlusCircle } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
+import { cn } from '@/lib/utils';
 
-interface DailyPlanEntry {
-  id: number;
-  date: string;
-  activities: string;
-  notes: string;
-}
+// --- Types & Constants ---
+type Priority = 'high' | 'medium' | 'low';
+interface Task { id: number; text: string; completed: boolean; priority: Priority; }
+interface Event { id: number; time: string; title: string; }
+interface Note { id: number; title: string; content: string; }
+interface DailyData { tasks: Task[]; events: Event[]; notes: Note[]; }
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100 } }
+const priorityMap: { [key in Priority]: { label: string; color: string; } } = {
+  high: { label: '중요', color: 'bg-red-500' },
+  medium: { label: '보통', color: 'bg-yellow-500' },
+  low: { label: '낮음', color: 'bg-blue-500' },
 };
 
-const DailyInvestmentPlan: React.FC = () => {
-  const [targetAmount, setTargetAmount] = useState<number | ''>('');
-  const [startDate, setStartDate] = useState<Date>();
-  const [endDate, setEndDate] = useState<Date>();
-  const [dailyEntries, setDailyEntries] = useState<DailyPlanEntry[]>([]);
-  const [currentActivity, setCurrentActivity] = useState('');
-  const [currentNotes, setCurrentNotes] = useState('');
-  const [selectedDateForEntry, setSelectedDateForEntry] = useState<Date | undefined>(new Date());
+// --- Sub-components ---
 
-  const { toast } = useToast();
+const DailyDetailView = ({ selectedDate, data, onUpdate }: { selectedDate: Date; data: DailyData; onUpdate: (newData: DailyData) => void; }) => {
+  const [newTask, setNewTask] = useState('');
+  const [newPriority, setNewPriority] = useState<Priority>('medium');
+  const [newEvent, setNewEvent] = useState('');
+  const [newTime, setNewTime] = useState('12:00');
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [noteView, setNoteView] = useState<'list' | 'editor'>('list');
 
-  const handleAddDailyEntry = () => {
-    if (!selectedDateForEntry || !currentActivity.trim()) {
-      toast({ title: "기록 추가 실패", description: "날짜와 활동 내용을 입력해주세요.", variant: "destructive" });
-      return;
-    }
-    const newEntry = {
-      id: Date.now(),
-      date: format(selectedDateForEntry, "yyyy-MM-dd"),
-      activities: currentActivity.trim(),
-      notes: currentNotes.trim(),
-    };
-    setDailyEntries(prev => [...prev, newEntry].sort((a, b) => b.date.localeCompare(a.date)));
-    setCurrentActivity('');
-    setCurrentNotes('');
-    toast({ title: "기록 추가 완료", description: `${newEntry.date}의 활동이 기록되었습니다.` });
+  useEffect(() => {
+    setNoteView('list');
+    setEditingNote(null);
+  }, [selectedDate]);
+
+  const handleUpdate = (field: keyof DailyData, value: any) => {
+    const currentData = data || { tasks: [], events: [], notes: [] };
+    onUpdate({ ...currentData, [field]: value });
   };
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      {/* Left Column: Entry Form */}
-      <motion.div className="lg:col-span-1 space-y-6" variants={itemVariants}>
-        <Card className="bg-slate-800/50 border-slate-700">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-slate-300">일일 투자 기록</CardTitle>
-            <CardDescription className="text-sm text-slate-400">오늘의 투자 활동을 기록하세요.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-400">날짜 선택</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant={"outline"} className="w-full justify-start text-left font-normal bg-slate-800 border-slate-600 hover:bg-slate-700 hover:text-slate-200">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDateForEntry ? format(selectedDateForEntry, "PPP", { locale: ko }) : <span>날짜 선택</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700 text-slate-200">
-                  <Calendar mode="single" selected={selectedDateForEntry} onSelect={setSelectedDateForEntry} initialFocus locale={ko} />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="activity" className="text-sm font-medium text-slate-400">활동 내용 (필수)</Label>
-              <Input id="activity" placeholder="예: 삼성전자 1주 매수" value={currentActivity} onChange={(e) => setCurrentActivity(e.target.value)} className="bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-indigo-500" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notes" className="text-sm font-medium text-slate-400">추가 노트</Label>
-              <Textarea id="notes" placeholder="시장 동향, 투자 결정 이유 등" value={currentNotes} onChange={(e) => setCurrentNotes(e.target.value)} className="bg-slate-800 border-slate-600 text-slate-200 min-h-[100px] placeholder:text-slate-500 focus:border-indigo-500 focus:ring-indigo-500" />
-            </div>
-            <Button onClick={handleAddDailyEntry} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold flex items-center gap-2 group">
-              <PlusCircle className="h-5 w-5 group-hover:rotate-90 transition-transform" />
-              기록 추가
-            </Button>
-          </CardContent>
-        </Card>
-      </motion.div>
+  const addTask = () => { if (newTask.trim()) { handleUpdate('tasks', [...data.tasks, { id: Date.now(), text: newTask, completed: false, priority: newPriority }]); setNewTask(''); setNewPriority('medium'); }};
+  const toggleTask = (id: number) => handleUpdate('tasks', data.tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+  const deleteTask = (id: number) => handleUpdate('tasks', data.tasks.filter(t => t.id !== id));
+  
+  const addEvent = () => { if (newEvent.trim()) { handleUpdate('events', [...data.events, { id: Date.now(), time: newTime, title: newEvent }].sort((a,b) => a.time.localeCompare(b.time))); setNewEvent(''); }};
+  const deleteEvent = (id: number) => handleUpdate('events', data.events.filter(e => e.id !== id));
 
-      {/* Right Column: Log List */}
-      <motion.div className="lg:col-span-2" variants={itemVariants}>
-        <Card className="bg-slate-800/50 border-slate-700 h-full">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-slate-300">투자 로그</CardTitle>
-            <CardDescription className="text-sm text-slate-400">나의 투자 여정을 확인하세요.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {dailyEntries.length === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-slate-400">아직 기록된 활동이 없습니다.</p>
-                <p className="text-sm text-slate-500 mt-2">왼쪽 폼에서 첫 기록을 추가해보세요.</p>
-              </div>
-            ) : (
-              <ScrollArea className="h-[400px] pr-4">
-                <div className="space-y-4">
-                  {dailyEntries.map((entry) => (
-                    <motion.div key={entry.id} layout variants={itemVariants} initial="hidden" animate="visible" className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50 hover:border-indigo-500/50 transition-colors">
-                      <p className="text-sm font-semibold text-indigo-400 mb-1">{entry.date}</p>
-                      <p className="text-slate-200">{entry.activities}</p>
-                      {entry.notes && (
-                        <p className="text-xs text-slate-400 mt-2 border-l-2 border-slate-600 pl-2">{entry.notes}</p>
-                      )}
-                    </motion.div>
-                  ))}
+  const addNote = () => { const newNote: Note = { id: Date.now(), title: '새 노트', content: '' }; handleUpdate('notes', [...data.notes, newNote]); setEditingNote(newNote); setNoteView('editor'); };
+  const updateNote = () => { if(editingNote) { handleUpdate('notes', data.notes.map(n => n.id === editingNote.id ? editingNote : n)); setNoteView('list'); }};
+  const deleteNote = (id: number) => { handleUpdate('notes', data.notes.filter(n => n.id !== id)); setEditingNote(null); setNoteView('list'); };
+
+  return (
+    <Card className="bg-slate-800/50 border-slate-700 h-full flex flex-col">
+      <CardHeader><CardTitle className="text-xl font-bold text-slate-200">{format(selectedDate, "yyyy년 MM월 dd일 (eee)", { locale: ko })}</CardTitle></CardHeader>
+      <CardContent className="flex-grow flex flex-col">
+        <Tabs defaultValue="planner" className="flex-grow flex flex-col">
+          <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="planner"><ListChecks className="mr-2 h-4 w-4"/>플래너</TabsTrigger><TabsTrigger value="notes"><StickyNote className="mr-2 h-4 w-4"/>노트</TabsTrigger></TabsList>
+          
+          <TabsContent value="planner" className="flex-grow flex flex-col space-y-4 pt-4">
+            {/* Events Section */}
+            <Card className="bg-slate-900/50 border-slate-700/80">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold text-indigo-400">일정</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input type="time" value={newTime} onChange={e => setNewTime(e.target.value)} className="bg-slate-800 border-slate-600 w-full sm:w-auto"/>
+                  <Input placeholder="새로운 일정" value={newEvent} onChange={e => setNewEvent(e.target.value)} onKeyPress={e => e.key === 'Enter' && addEvent()} className="bg-slate-800 border-slate-600 flex-1"/>
+                  <Button onClick={addEvent} className="bg-indigo-600 hover:bg-indigo-700 flex-shrink-0"><PlusCircle size={16} className="mr-2"/>추가</Button>
                 </div>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
-    </div>
+                <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
+                  {data.events.map(e => <div key={e.id} className="flex items-center gap-3 p-2.5 rounded-md bg-slate-800"><span className="font-bold text-indigo-300 w-14 text-sm">{e.time}</span><span className="flex-1 text-slate-200 text-sm break-all">{e.title}</span><Button onClick={() => deleteEvent(e.id)} variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-red-500 flex-shrink-0"><Trash2 size={16}/></Button></div>)}
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Tasks Section */}
+            <Card className="bg-slate-900/50 border-slate-700/80">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold text-indigo-400">할 일</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input placeholder="새로운 할 일" value={newTask} onChange={e => setNewTask(e.target.value)} onKeyPress={e => e.key === 'Enter' && addTask()} className="bg-slate-800 border-slate-600 flex-1"/>
+                  <Select value={newPriority} onValueChange={v => setNewPriority(v as Priority)}><SelectTrigger className="w-full sm:w-[120px] bg-slate-800 border-slate-600"><SelectValue placeholder="우선순위"/></SelectTrigger><SelectContent className="bg-slate-800 text-white">{Object.entries(priorityMap).map(([k,v])=><SelectItem key={k} value={k}>{v.label}</SelectItem>)}</SelectContent></Select>
+                  <Button onClick={addTask} className="bg-indigo-600 hover:bg-indigo-700 flex-shrink-0"><PlusCircle size={16} className="mr-2"/>추가</Button>
+                </div>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                  {data.tasks.map(t => <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-md bg-slate-800"><Checkbox id={`t-${t.id}`} checked={t.completed} onCheckedChange={() => toggleTask(t.id)} /><label htmlFor={`t-${t.id}`} className={cn("flex-1 text-sm", t.completed ? "line-through text-slate-500" : "text-slate-200")}>{t.text}</label><div className={cn("w-3 h-3 rounded-full flex-shrink-0", priorityMap[t.priority].color)} /><Button onClick={() => deleteTask(t.id)} variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-red-500 flex-shrink-0"><Trash2 size={16}/></Button></div>)}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="notes" className="flex-grow flex flex-col pt-4">
+            <AnimatePresence mode="wait">
+              {noteView === 'list' ? (
+                <motion.div key="list" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="flex-grow flex flex-col">
+                  <Button onClick={addNote} className="w-full mb-2"><PlusCircle size={16} className="mr-2"/>새 노트</Button>
+                  <div className="space-y-2 flex-grow overflow-y-auto pr-2">{data.notes.map(n => <Button key={n.id} variant="ghost" onClick={() => {setEditingNote(n); setNoteView('editor');}} className="w-full justify-start truncate"><Book size={14} className="mr-2 flex-shrink-0"/>{n.title}</Button>)}</div>
+                </motion.div>
+              ) : (
+                <motion.div key="editor" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="flex-grow flex flex-col space-y-2">
+                  <div className="flex gap-2 items-center">
+                    <Button onClick={() => setNoteView('list')} variant="outline" size="icon" className="flex-shrink-0"><ArrowLeft size={16}/></Button>
+                    <Input value={editingNote?.title || ''} onChange={e => setEditingNote(prev => prev ? {...prev, title: e.target.value} : null)} placeholder="노트 제목" className="bg-slate-900/80 text-lg font-bold"/>
+                    <Button onClick={updateNote} size="icon"><Save size={16}/></Button>
+                    <Button onClick={() => deleteNote(editingNote!.id)} variant="destructive" size="icon"><Trash2 size={16}/></Button>
+                  </div>
+                  <Textarea value={editingNote?.content || ''} onChange={e => setEditingNote(prev => prev ? {...prev, content: e.target.value} : null)} placeholder="내용을 입력하세요..." className="bg-slate-900/80 flex-grow resize-none"/>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
 };
 
-export default DailyInvestmentPlan;
+// --- Main Component ---
+export default function ProDailyDashboard() {
+  const [allData, setAllData] = useLocalStorage<Record<string, DailyData>>('pro-daily-dashboard', {});
+  const [selectedDate, setSelectedDate] = useState(new Date());
+
+  const handleDateUpdate = (dateKey: string, newData: DailyData) => {
+    const currentData = allData[dateKey] || { tasks: [], events: [], notes: [] };
+    setAllData({ ...allData, [dateKey]: {...currentData, ...newData} });
+  };
+
+  const selectedDateKey = format(selectedDate, "yyyy-MM-dd");
+  
+  const dayDataFromStorage = allData[selectedDateKey];
+  const selectedDayData = {
+    tasks: dayDataFromStorage?.tasks || [],
+    events: dayDataFromStorage?.events || [],
+    notes: dayDataFromStorage?.notes || [],
+  };
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="md:col-span-1">
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardContent className="p-0"><Calendar mode="single" selected={selectedDate} onSelect={(date) => date && setSelectedDate(date)} className="w-full" components={{ DayContent: ({ date }) => { const dateKey = format(date, "yyyy-MM-dd"); const hasData = allData[dateKey] && (allData[dateKey].tasks.length > 0 || allData[dateKey].events.length > 0 || allData[dateKey].notes.length > 0); return (<div className="relative w-full h-full flex items-center justify-center"><span>{format(date, "d")}</span>{hasData && <div className="absolute bottom-1 w-1.5 h-1.5 bg-yellow-400 rounded-full" />}</div>);}}} /></CardContent>
+        </Card>
+      </div>
+      <div className="md:col-span-2">
+        <DailyDetailView selectedDate={selectedDate} data={selectedDayData} onUpdate={(newData) => handleDateUpdate(selectedDateKey, newData)} />
+      </div>
+    </div>
+  );
+}

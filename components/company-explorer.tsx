@@ -56,7 +56,7 @@ export default function CompanyExplorer({ stockData, isLoading, fetchError }: Co
         <p className="text-red-400 font-semibold">데이터 로딩 실패</p>
         <p className="text-slate-400 mt-2 text-sm">서버 연결에 문제가 발생했습니다.</p>
         <Button onClick={() => window.location.reload()} className="mt-4 bg-indigo-600 hover:bg-indigo-700">
-          ���로고침
+          새로고침
         </Button>
       </div>
     );

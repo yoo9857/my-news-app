@@ -81,7 +81,7 @@ async function fetchGoogleNews(query: string): Promise<NewsItem[]> {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const query = searchParams.get("query") || "코스피, 경제, 증시"; // 기본 검색어
+    const query = searchParams.get("query") || "속보"; // 기본 검색어
 
     const [naverNews, googleNews] = await Promise.all([
       fetchNaverNews(query),

@@ -1,9 +1,12 @@
 import './globals.css'; // 전역 스타일 임포트
-import { Inter } from 'next/font/google';
+import { Noto_Sans_KR } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider'; // ThemeProvider 임포트
 import { Toaster } from "@/components/ui/toaster"; // Toaster 컴포넌트 임포트
 
-const inter = Inter({ subsets: ['latin'] });
+const notoSansKr = Noto_Sans_KR({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+});
 
 export const metadata = {
   title: '대한민국 투자 플랫폼',
@@ -23,7 +26,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko" suppressHydrationWarning>
-      <body className={`${inter.className} antialiased bg-[#0F172A] text-gray-100`}>
+      <body className={`${notoSansKr.className} antialiased bg-[#0F172A] text-gray-100`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark" // 기본 다크 모드 설정
