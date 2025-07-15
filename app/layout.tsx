@@ -33,7 +33,7 @@ export default function RootLayout({
     if (typeof window !== 'undefined') {
       const logVisit = async () => {
         try {
-          await fetch('http://localhost:8003/api/log_visit', {
+          await fetch('/api/log_visit', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

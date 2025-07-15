@@ -47,11 +47,43 @@ services:
       context: .
       dockerfile: ./KiwoomGateway/Dockerfile.news-worker
     container_name: my_news_app_news_worker
-    env_file: ./.env
+    env_file:
+      - ./.env
+      - ./.env.local
     depends_on:
       rabbitmq:
         condition: service_healthy
     command: python news_worker.py
+    networks:
+      - my_news_network
+
+  db-saver:
+    build:
+      context: .
+      dockerfile: ./KiwoomGateway/Dockerfile.db-saver
+    container_name: my_news_app_db_saver
+    env_file:
+      - ./.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    command: python db_saver.py
+    networks:
+      - my_news_network
+
+  sentiment-worker:
+    build:
+      context: .
+      dockerfile: ./KiwoomGateway/Dockerfile.sentiment-worker
+    container_name: my_news_app_sentiment_worker
+    env_file:
+      - ./.env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    command: python sentiment_worker.py
     networks:
       - my_news_network
 
@@ -97,7 +129,7 @@ services:
         condition: service_healthy
     ports:
       - "8002:8002"
-    command: /app/entrypoint-news.sh
+    command: uvicorn KiwoomGateway.fastapi_server:app --host 0.0.0.0 --port 8002 --reload
     networks:
       - my_news_network
 

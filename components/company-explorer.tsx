@@ -71,7 +71,7 @@ export default function CompanyExplorer() {
       setIsLoading(true);
       setFetchError(false);
       try {
-        const response = await fetch('http://localhost:8001/api/all-companies?limit=1500');
+        const response = await fetch('/api/all-companies?limit=1500');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -92,8 +92,10 @@ export default function CompanyExplorer() {
     fetchInitialData();
 
     // WebSocket for real-time price updates
-    if (!socketRef.current) {
-      const socket = new WebSocket('ws://localhost:8001/ws/realtime-price');
+    if (!socketRef.current || socketRef.current.readyState === WebSocket.CLOSED) {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host; // This will be localhost:3000 in dev
+      const socket = new WebSocket(`${protocol}//${host}/ws/realtime-price`);
       socketRef.current = socket;
 
       socket.onopen = () => {
@@ -128,9 +130,8 @@ export default function CompanyExplorer() {
     }
 
     return () => {
-      if (socketRef.current) {
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
         socketRef.current.close();
-        socketRef.current = null;
       }
     };
   }, []);

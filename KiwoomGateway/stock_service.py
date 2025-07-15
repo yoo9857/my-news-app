@@ -70,12 +70,24 @@ async def startup_event():
     )
     
     async def consume_prices():
-        pubsub = app.state.redis.pubsub()
-        await pubsub.subscribe("kiwoom_realtime_data")
-        while True:
-            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
-            if message:
-                await manager.broadcast(message['data'])
+        while True: # Add a loop for automatic reconnection
+            try:
+                pubsub = app.state.redis.pubsub()
+                await pubsub.subscribe("kiwoom_realtime_data")
+                print("Subscribed to kiwoom_realtime_data channel.")
+                while True:
+                    message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=None) # Block until message
+                    if message:
+                        # print(f"Received from Redis: {message['data']}") # Debugging line
+                        await manager.broadcast(message['data'])
+            except redis.exceptions.ConnectionError as e:
+                print(f"Redis connection error in consume_prices: {e}. Reconnecting in 5 seconds...")
+                await asyncio.sleep(5)
+            except Exception as e:
+                print(f"An unexpected error occurred in consume_prices: {e}. Reconnecting in 5 seconds...")
+                await asyncio.sleep(5)
+            finally:
+                print("Attempting to re-subscribe to Redis channel.")
 
     asyncio.create_task(consume_prices())
 

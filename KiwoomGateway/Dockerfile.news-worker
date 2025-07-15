@@ -5,6 +5,9 @@ RUN apt-get update && apt-get install -y dos2unix netcat-traditional && rm -rf /
 
 WORKDIR /app
 
+COPY ./KiwoomGateway/requirements-news-worker.txt /app/
+RUN pip install --no-cache-dir -r requirements-news-worker.txt
+
 COPY ./KiwoomGateway/news_worker.py /app/
 COPY ./KiwoomGateway/entrypoint-news-worker.sh /app/
 COPY ./KiwoomGateway/wait-for-it.sh /usr/local/bin/

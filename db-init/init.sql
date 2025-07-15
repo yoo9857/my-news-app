@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS news_articles (
     title TEXT NOT NULL,
     content TEXT,
     url VARCHAR(512) UNIQUE NOT NULL,
-    source VARCHAR(100),
+    source TEXT,
     published_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     sentiment_score FLOAT,

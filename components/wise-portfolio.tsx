@@ -60,20 +60,21 @@ interface RecommendedStock extends StockInfo {
 
 // --- Algorithm Simulation ---
 const calculateScores = (stock: StockInfo): { stabilityScore: number; growthScore: number } => {
-  const marketCap = parseInt(stock.marketCap || '0', 10);
-  const per = parseFloat(stock.per || '0');
-  const volume = parseInt(stock.volume || '0', 10);
+  const marketCap = stock.market_cap || 0;
+  const volume = stock.volume || 0;
 
   let stabilityScore = 0;
   if (stock.market === 'KOSPI') stabilityScore += 20;
   if (marketCap > 100000) stabilityScore += 50;
   else if (marketCap > 10000) stabilityScore += 30;
-  if (per > 0 && per < 15) stabilityScore += 30;
+  // PER-based scoring removed as 'per' is not in StockInfo
+  // if (per > 0 && per < 15) stabilityScore += 30;
 
   let growthScore = 0;
   if (stock.market === 'KOSDAQ') growthScore += 20;
   if (volume > 1000000) growthScore += 20;
-  if (per > 25) growthScore += 30;
+  // PER-based scoring removed
+  // if (per > 25) growthScore += 30;
   if (marketCap < 5000 && marketCap > 1000) growthScore += 30;
 
   return { stabilityScore, growthScore };
@@ -86,8 +87,8 @@ const generateRecommendations = (level: number, stocks: StockInfo[]): Recommende
     .map(s => {
       const { stabilityScore, growthScore } = calculateScores(s);
       return { ...s, stabilityScore, growthScore, finalScore: 0 };
-    })
-    .filter(s => s.per && parseFloat(s.per) > 0);
+    });
+    // .filter(s => s.per && parseFloat(s.per) > 0); // Filter removed
 
   let recommendations: ScoredStock[] = [];
 
@@ -110,10 +111,10 @@ const generateRecommendations = (level: number, stocks: StockInfo[]): Recommende
       recommendations = scoredStocks.map(s => ({...s, finalScore: s.growthScore * 0.8 + s.stabilityScore * 0.2})).sort((a, b) => b.finalScore - a.finalScore);
       break;
     case 6:
-      recommendations = scoredStocks.map(s => ({...s, finalScore: s.growthScore + (parseInt(s.volume) / 100000)})).sort((a, b) => b.finalScore - a.finalScore);
+      recommendations = scoredStocks.map(s => ({...s, finalScore: s.growthScore + (s.volume / 100000)})).sort((a, b) => b.finalScore - a.finalScore);
       break;
     case 7:
-      recommendations = scoredStocks.filter(s => parseInt(s.marketCap) < 2000).sort((a, b) => b.growthScore - a.growthScore);
+      recommendations = scoredStocks.filter(s => s.market_cap < 2000).sort((a, b) => b.growthScore - a.growthScore);
       break;
     default:
       recommendations = scoredStocks;
@@ -219,7 +220,7 @@ export default function WisePortfolio() {
                               <p className="text-xs text-slate-400">{stock.reason}</p>
                             </div>
                             <div className="text-right">
-                              <p className="font-mono text-slate-200">{stock.price.toLocaleString()}원</p>
+                              <p className="font-mono text-slate-200">{stock.currentPrice.toLocaleString()}원</p>
                               <p className={`text-xs font-semibold ${stock.change_rate > 0 ? 'text-green-400' : stock.change_rate < 0 ? 'text-red-400' : 'text-slate-500'}`}>{stock.change_rate}%</p>
                             </div>
                           </li>

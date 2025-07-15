@@ -1,5 +1,5 @@
 requests
-beautifulsoup4
-psycopg2-binary
-selenium
 aio_pika
+pika
+redis
+python-dateutil

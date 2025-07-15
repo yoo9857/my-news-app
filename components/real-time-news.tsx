@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Loader2, TrendingUp, TrendingDown, Minus, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { NewsItem } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,14 +26,103 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, scale: 1 }
 };
 
+const AnalyzingBadge = () => {
+  const texts = ["AI 분석중...", "문맥 파악중...", "데이터 추론중..."];
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIndex((prevIndex) => (prevIndex + 1) % texts.length);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <Badge className="flex items-center gap-1 text-xs px-2 py-1 bg-slate-600/50 text-slate-400 border-slate-600/50">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={index}
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 10 }}
+          transition={{ duration: 0.3 }}
+        >
+          {texts[index]}
+        </motion.span>
+      </AnimatePresence>
+    </Badge>
+  );
+};
+
+const getSentimentStyle = (label: string) => {
+  if (label.includes('긍정')) {
+    const base = { containerBg: 'rgba(16, 185, 129, 0.1)', barBg: 'rgba(16, 185, 129, 0.4)', textColor: 'rgb(52, 211, 153)', borderColor: 'rgba(16, 185, 129, 0.3)' };
+    if (label === '강한 긍정') return { ...base, barBg: 'rgba(16, 185, 129, 0.6)', textColor: 'rgb(110, 231, 183)' };
+    if (label === '약한 긍정') return { ...base, barBg: 'rgba(16, 185, 129, 0.2)', textColor: 'rgb(107, 114, 128)' };
+    return base;
+  }
+  if (label.includes('부정')) {
+    const base = { containerBg: 'rgba(239, 68, 68, 0.1)', barBg: 'rgba(239, 68, 68, 0.4)', textColor: 'rgb(248, 113, 113)', borderColor: 'rgba(239, 68, 68, 0.3)' };
+    if (label === '강한 부정') return { ...base, barBg: 'rgba(239, 68, 68, 0.6)', textColor: 'rgb(252, 165, 165)' };
+    if (label === '약한 부정') return { ...base, barBg: 'rgba(239, 68, 68, 0.2)', textColor: 'rgb(107, 114, 128)' };
+    return base;
+  }
+  return {
+    containerBg: 'rgba(100, 116, 139, 0.1)',
+    barBg: 'rgba(100, 116, 139, 0.4)',
+    textColor: 'rgb(148, 163, 184)',
+    borderColor: 'rgba(100, 116, 139, 0.2)',
+  };
+};
+
 const SentimentBadge = ({ score, label }: { score: number, label: string }) => {
-  const sentimentMap: { [key: string]: { icon: JSX.Element, color: string } } = {
-    '긍정적': { icon: <TrendingUp size={12} />, color: 'bg-green-500/10 text-green-400 border-green-500/20' },
-    '부정적': { icon: <TrendingDown size={12} />, color: 'bg-red-500/10 text-red-400 border-red-500/20' },
-    '중립적': { icon: <Minus size={12} />, color: 'bg-slate-500/10 text-slate-400 border-slate-500/20' },
+  const sentimentMap: { [key: string]: { icon: JSX.Element } } = {
+    '강한 긍정': { icon: <><TrendingUp size={12} className="-mr-1" /><TrendingUp size={12} /></> },
+    '긍정적': { icon: <TrendingUp size={12} /> },
+    '약한 긍정': { icon: <TrendingUp size={12} /> },
+    '중립적': { icon: <Minus size={12} /> },
+    '약한 부정': { icon: <TrendingDown size={12} /> },
+    '부정적': { icon: <TrendingDown size={12} /> },
+    '강한 부정': { icon: <><TrendingDown size={12} className="-mr-1" /><TrendingDown size={12} /></> },
   };
   const sentiment = sentimentMap[label] || sentimentMap['중립적'];
-  return <Badge className={`flex items-center gap-1 text-xs px-2 py-0.5 ${sentiment.color}`}>{sentiment.icon}{label} ({score.toFixed(2)})</Badge>;
+  const style = getSentimentStyle(label);
+  const formattedScore = (score * 100).toFixed(1);
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge
+            style={{
+              backgroundColor: style.containerBg,
+              color: style.textColor,
+              borderColor: style.borderColor
+            }}
+            className="relative flex items-center gap-1 text-xs px-2 py-1 overflow-hidden"
+          >
+            {/* Fill Bar */}
+            <motion.div
+              className="absolute left-0 top-0 h-full"
+              style={{ backgroundColor: style.barBg }}
+              initial={{ width: '0%' }}
+              animate={{ width: `${formattedScore}%` }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            ></motion.div>
+            
+            {/* Content */}
+            <div className="relative flex items-center gap-1">
+              {sentiment.icon}
+              <span>{label}</span>
+            </div>
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent className="bg-slate-800 border-slate-700 text-slate-200">
+          <p>{label} 분석 (신뢰도: {formattedScore}%)</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 };
 
 export default function RealTimeNews() {
@@ -45,67 +135,36 @@ export default function RealTimeNews() {
   const newsSocketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const fetchInitialNews = async () => {
-      setIsLoading(true);
+    const fetchNews = async () => {
+      // Don't set loading to true on subsequent fetches to avoid flicker
+      // setIsLoading(true); 
       setFetchError(false);
       try {
-        const response = await fetch('http://localhost:8002/api/news?limit=50');
+        const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/news?limit=30`;
+        const response = await fetch(apiUrl);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const result = await response.json();
         if (result.success && Array.isArray(result.data)) {
-          setNews(result.data);
+          setNews(result.data); // Replace the news list entirely
         } else {
           setFetchError(true);
         }
       } catch (error) {
-        console.error("Failed to fetch initial news data:", error);
+        console.error("Failed to fetch news data:", error);
         setFetchError(true);
       } finally {
-        setIsLoading(false);
+        setIsLoading(false); // Set loading to false after the first fetch
       }
     };
 
-    fetchInitialNews();
+    fetchNews(); // Fetch immediately on component mount
 
-    // WebSocket for real-time news updates
-    if (!newsSocketRef.current) {
-      const newsSocket = new WebSocket('ws://localhost:8002/ws/realtime-news');
-      newsSocketRef.current = newsSocket;
-
-      newsSocket.onopen = () => {
-        console.log("RealTimeNews: WebSocket connection successful");
-      };
-
-      newsSocket.onmessage = (event) => {
-        try {
-          const newArticles = JSON.parse(event.data);
-          setNews(prevNews => {
-            const existingUrls = new Set(prevNews.map(item => item.url));
-            const uniqueNewArticles = newArticles.filter((item: NewsItem) => !existingUrls.has(item.url));
-            return [...uniqueNewArticles, ...prevNews].slice(0, 50); // Keep only the latest 50 news items
-          });
-        } catch (e) {
-          console.error('RealTimeNews: Error processing WebSocket message:', e);
-        }
-      };
-
-      newsSocket.onerror = (error) => {
-        console.error('RealTimeNews: WebSocket Error:', error);
-      };
-
-      newsSocket.onclose = (event) => {
-        console.log('RealTimeNews: WebSocket connection closed:', event.reason);
-        newsSocketRef.current = null; // Allow reconnection
-      };
-    }
+    const intervalId = setInterval(fetchNews, 120000); // Refresh every 120 seconds
 
     return () => {
-      if (newsSocketRef.current) {
-        newsSocketRef.current.close();
-        newsSocketRef.current = null;
-      }
+      clearInterval(intervalId); // Clean up the interval on component unmount
     };
   }, []);
 
@@ -142,21 +201,28 @@ export default function RealTimeNews() {
         animate="visible"
       >
         <AnimatePresence>
-          {filteredNews.map((item) => (
-            <motion.a
-              key={item.url}
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              variants={itemVariants}
-              layout
-              className="block bg-slate-800/50 border border-slate-700/50 rounded-lg p-4 hover:bg-slate-800 hover:border-indigo-500/50 transition-all"
-            >
-              <h3 className="font-semibold text-slate-200 mb-2">{item.title}</h3>
-              <p className="text-xs text-slate-500 mb-3">{item.source} - {new Date(item.published_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</p>
-              <SentimentBadge score={item.sentiment_score || 0} label={item.sentiment_label || '중립적'} />
-            </motion.a>
-          ))}
+          {filteredNews.map((item) => {
+              const sourceName = item.source ? new URL(item.source).hostname.replace('www.', '') : '알 수 없음';
+              return (
+                <motion.a
+                  key={item.url}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variants={itemVariants}
+                  layout
+                  className="block bg-slate-800/50 border border-slate-700/50 rounded-lg p-4 hover:bg-slate-800 hover:border-indigo-500/50 transition-all"
+                >
+                  <h3 className="font-semibold text-slate-200 mb-2">{item.title}</h3>
+                  <p className="text-xs text-slate-500 mb-3">{sourceName} - {new Date(item.published_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</p>
+                  {item.sentiment_label ? (
+                    <SentimentBadge score={item.sentiment_score || 0} label={item.sentiment_label} />
+                  ) : (
+                    <AnalyzingBadge />
+                  )}
+                </motion.a>
+              );
+          })}
         </AnimatePresence>
       </motion.div>
     );
