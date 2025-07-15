@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { pool } from "@/lib/db";
+import { db } from "@/lib/db";
 
 export async function GET() {
-  const client = await pool.connect();
+  const client = await db.connect();
   try {
     // 'theme' 컬럼에서 NULL이 아니고 비어있지 않은 고유한 테마 목록을 조회합니다.
     // 관련 없는 테마나 너무 긴 테마를 제외하기 위해 theme 컬럼의 길이를 제한할 수 있습니다.

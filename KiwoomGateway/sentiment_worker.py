@@ -34,21 +34,22 @@ def analyze_sentiment_sync(text):
         base_label = labels[label_id]
         
         # Detailed labeling based on score
+        # Detailed labeling based on score
         if base_label == "긍정적":
-            if score >= 0.85:
+            if score >= 0.95:
                 label = "강한 긍정"
-            elif score >= 0.75:
+            elif score >= 0.85:
                 label = "긍정적"
-            elif score >= 0.65:
+            elif score >= 0.60: # Threshold lowered to 60%
                 label = "약한 긍정"
             else:
                 label = "중립적"
         elif base_label == "부정적":
-            if score >= 0.25:
+            if score >= 0.95:
                 label = "강한 부정"
-            elif score >= 0.35:
+            elif score >= 0.85:
                 label = "부정적"
-            elif score >= 0.45:
+            elif score >= 0.60: # Threshold lowered to 60%
                 label = "약한 부정"
             else:
                 label = "중립적"
