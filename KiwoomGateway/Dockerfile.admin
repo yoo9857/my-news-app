@@ -1,0 +1,18 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY ./KiwoomGateway/requirements-admin.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY ./KiwoomGateway/admin_service.py /app/
+COPY ./KiwoomGateway/auth/ /app/auth/
+COPY ./KiwoomGateway/board/ /app/board/
+COPY ./KiwoomGateway/profile/ /app/profile/
+COPY ./KiwoomGateway/group/ /app/group/
+COPY ./KiwoomGateway/chat/ /app/chat/
+COPY ./KiwoomGateway/payment/ /app/payment/
+COPY ./KiwoomGateway/likes/ /app/likes/
+COPY ./KiwoomGateway/tags/ /app/tags/
+
+CMD ["uvicorn", "admin_service:app", "--host", "0.0.0.0", "--port", "8003"]

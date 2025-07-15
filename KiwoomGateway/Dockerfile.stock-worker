@@ -1,0 +1,7 @@
+# Dockerfile.stock-worker
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements-stock-worker.txt .
+RUN pip install --no-cache-dir -r requirements-stock-worker.txt
+COPY stock_worker.py .
+CMD ["python", "-u", "stock_worker.py"]

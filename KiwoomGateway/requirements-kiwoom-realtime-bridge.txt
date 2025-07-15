@@ -1,0 +1,8 @@
+PyQt5
+redis
+fastapi
+uvicorn
+slowapi
+httpx
+psycopg2-binary
+aio_pika

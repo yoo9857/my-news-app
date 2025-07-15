@@ -131,7 +131,7 @@ const DailyDetailView = ({ selectedDate, data, onUpdate }: { selectedDate: Date;
 };
 
 // --- Main Component ---
-export default function ProDailyDashboard() {
+const ProDailyDashboard = () => {
   const [allData, setAllData] = useLocalStorage<Record<string, DailyData>>('pro-daily-dashboard', {});
   const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -161,4 +161,6 @@ export default function ProDailyDashboard() {
       </div>
     </div>
   );
-}
+};
+
+export default React.memo(ProDailyDashboard);

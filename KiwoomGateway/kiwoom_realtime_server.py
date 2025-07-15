@@ -1,109 +1,58 @@
 import sys
 import threading
-import uvicorn
 import asyncio
 import json
 import os
+import site
+from PyQt5.QtCore import QCoreApplication
+
+# --- Qt 플랫폼 플러그인 경로 설정 ---
+venv_path = sys.prefix
+plugin_path = os.path.join(venv_path, 'Lib', 'site-packages', 'PyQt5', 'Qt5', 'plugins', 'platforms')
+QCoreApplication.addLibraryPath(plugin_path)
+
 import time
 import logging
 from logging.handlers import RotatingFileHandler
-from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QAxContainer import QAxWidget
 from PyQt5.QtCore import QEventLoop, QTimer
 
+import redis.asyncio as redis
+
 # --- 로깅 설정 ---
 log_dir = "KiwoomGateway/logs"
 os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, "security.log")
+log_file = os.path.join(log_dir, "kiwoom_realtime.log")
 
-# 로거 설정
-security_logger = logging.getLogger("security")
-security_logger.setLevel(logging.INFO)
+kiwoom_logger = logging.getLogger("kiwoom_realtime")
+kiwoom_logger.setLevel(logging.INFO)
 handler = RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5, encoding='utf-8')
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
-security_logger.addHandler(handler)
-
-
-# --- 설정 ---
-DATA_FILE_PATH = "./cached_company_data.json"
-CACHE_DURATION_HOURS = 3
+kiwoom_logger.addHandler(handler)
 
 # --- 전역 변수 및 인스턴스 ---
 real_data_queue: asyncio.Queue = asyncio.Queue()
-connected_websockets: set[WebSocket] = set()
 kiwoom_api_instance = None
-limiter = Limiter(key_func=get_remote_address)
+redis_pub_client = None
 
-# --- 커스텀 예외 핸들러 ---
-async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
-    """Rate Limit 초과 시 로그를 남기는 커스텀 핸들러"""
-    security_logger.warning(f"Rate limit exceeded for IP: {request.client.host} on path: {request.url.path}")
-    return JSONResponse(
-        status_code=429,
-        content={"detail": f"Too Many Requests: {exc.detail}"}
-    )
-
-# --- FastAPI Lifespan 관리자 ---
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global kiwoom_api_instance
-    print("🚀 서버 시작 프로세스를 개시합니다.")
-    
-    main_loop = asyncio.get_running_loop()
-    kiwoom_api_instance = KiwoomAPI(real_data_queue, main_loop)
-    
-    kiwoom_thread = threading.Thread(target=run_kiwoom_thread, args=(kiwoom_api_instance,))
-    kiwoom_thread.daemon = True
-    kiwoom_thread.start()
-
-    asyncio.create_task(real_data_broadcaster())
-
-    yield
-
-    print("🛑 서버를 종료합니다. 최종 데이터 저장을 시도합니다.")
-    if kiwoom_api_instance:
-        kiwoom_api_instance.save_data_to_file()
-    
-    if QApplication.instance():
-        QApplication.instance().quit()
-
-# --- FastAPI 앱 및 미들웨어 설정 ---
-app = FastAPI(lifespan=lifespan)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler) # 커스텀 핸들러 등록
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# --- 키움 API 클래스 (이하 동일) ---
+# --- 키움 API 클래스 ---
 class KiwoomAPI:
-    def __init__(self, queue, loop):
+    def __init__(self, queue, loop, redis_client):
         self.ocx = None
         self.login_event_loop = None
         self.tr_received_event = threading.Event()
         self.tr_data = None
         self.is_connected = False
-        self.all_companies_data = []
+        self.all_companies_data = [] # This will be loaded from DB by stock_service
         self.current_rqname = ""
         self.real_data_queue = queue
-        self.data_loaded_event = asyncio.Event()
         self.main_loop = loop
         self.pending_tr_requests = {}
         self._screen_no_counter = 1000
+        self.redis_pub_client = redis_client
 
     def qt_sleep(self, seconds):
         loop = QEventLoop()
@@ -116,31 +65,7 @@ class KiwoomAPI:
         self.ocx.OnEventConnect.connect(self.login_event)
         self.ocx.OnReceiveTrData.connect(self.receive_tr_data)
         self.ocx.OnReceiveRealData.connect(self._on_receive_real_data)
-        print("✅ OCX 컨트롤 및 이벤트 루프가 성공적으로 초기화되었습니다.")
-
-    def save_data_to_file(self):
-        if not self.all_companies_data:
-            print("⚠️ 저장할 데이터가 없어 캐시 파일을 생성하지 않습니다.")
-            return
-        try:
-            with open(DATA_FILE_PATH, 'w', encoding='utf-8') as f:
-                json.dump({"timestamp": datetime.now().isoformat(), "data": self.all_companies_data}, f, ensure_ascii=False, indent=4)
-            print(f"💾 데이터를 {DATA_FILE_PATH}에 성공적으로 저장했습니다. (총 {len(self.all_companies_data)}개)")
-        except Exception as e:
-            print(f"🔥 데이터 저장 중 오류 발생: {e}")
-
-    def load_data_from_file(self):
-        if not os.path.exists(DATA_FILE_PATH):
-            print("ℹ️ 기존 캐시 파일이 없습니다.")
-            return
-        try:
-            with open(DATA_FILE_PATH, 'r', encoding='utf-8') as f:
-                content = json.load(f)
-            self.all_companies_data = content.get("data", [])
-            print(f"✅ 기존 캐시에서 {len(self.all_companies_data)}개 데이터를 로드했습니다.")
-        except Exception as e:
-            print(f"🔥 캐시 로드 중 오류: {e}")
-            self.all_companies_data = []
+        kiwoom_logger.info("✅ OCX 컨트롤 및 이벤트 루프가 성공적으로 초기화되었습니다.")
 
     def login(self):
         self.ocx.dynamicCall("CommConnect()")
@@ -148,7 +73,7 @@ class KiwoomAPI:
 
     def login_event(self, err_code):
         self.is_connected = (err_code == 0)
-        print(f"✅ 로그인 성공" if self.is_connected else f"🔥 로그인 실패: {err_code}")
+        kiwoom_logger.info(f"✅ 로그인 성공" if self.is_connected else f"🔥 로그인 실패: {err_code}")
         self.login_event_loop.exit()
 
     def receive_tr_data(self, screen_no, rqname, trcode, record_name, next_key):
@@ -203,51 +128,30 @@ class KiwoomAPI:
         codes_str = ";".join(stock_codes)
         fids = "10;11;12;15"
         ret = self.ocx.dynamicCall("SetRealReg(QString, QString, QString, QString)", "9001", codes_str, fids, "1")
-        if ret == 0: print(f"✅ {len(stock_codes)}개 종목 실시간 시세 구독 성공")
-        else: print(f"🔥 {len(stock_codes)}개 종목 실시간 시세 구독 실패")
+        if ret == 0: kiwoom_logger.info(f"✅ {len(stock_codes)}개 종목 실시간 시세 구독 성공")
+        else: kiwoom_logger.error(f"🔥 {len(stock_codes)}개 종목 실시간 시세 구독 실패")
             
     def disconnect_all_realtime(self):
         self.ocx.dynamicCall("DisconnectRealData(QString)", "9001")
-        print("ℹ️ 모든 실시간 시세 구독 해제 완료.")
+        kiwoom_logger.info("ℹ️ 모든 실시간 시세 구독 해제 완료.")
 
     def load_all_company_data(self):
-        print("모든 기업 정보 로딩을 시작합니다...")
+        kiwoom_logger.info("모든 기업 정보 로딩을 시작합니다...")
         try:
-            existing_codes = {item['stockCode'] for item in self.all_companies_data}
-            if existing_codes: print(f"✅ {len(existing_codes)}개의 기존 데이터를 발견했습니다. 이어갑니다.")
             kospi_codes_raw = self.ocx.dynamicCall("GetCodeListByMarket(QString)", "0")
             kosdaq_codes_raw = self.ocx.dynamicCall("GetCodeListByMarket(QString)", "10")
             self.qt_sleep(3.6)
             all_codes_with_market = [(code, "KOSPI") for code in (kospi_codes_raw.split(';') if kospi_codes_raw else []) if code] + [(code, "KOSDAQ") for code in (kosdaq_codes_raw.split(';') if kosdaq_codes_raw else []) if code]
-            codes_to_fetch = [item for item in all_codes_with_market if item[0] not in existing_codes]
-            if not codes_to_fetch:
-                print("✅ 모든 종목의 최신 정보가 이미 저장되어 있습니다.")
-                self.data_loaded_event.set()
-                return
-            total_requests = len(codes_to_fetch)
-            print(f"✅ 전체 {len(all_codes_with_market)}개 중 {total_requests}개의 신규/누락된 종목 정보를 가져옵니다.")
-            batch_size = 200
-            for i, (code, market) in enumerate(codes_to_fetch):
-                stock_info = None
-                for attempt in range(3):
-                    print(f"  -> [{i+1}/{total_requests}] ({market}) {code} 정보 요청 중... (시도 {attempt+1}/3)")
-                    stock_info = self.get_stock_basic_info(code)
-                    if stock_info: break
-                    self.qt_sleep(3.6)
-                if not stock_info: continue
-                self.all_companies_data.append({"stockCode": code, "market": market, **stock_info})
-                if (i + 1) % batch_size == 0:
-                    print(f"💾 배치 저장. 현재까지 총 {len(self.all_companies_data)}개 데이터를 파일에 저장합니다.")
-                    self.save_data_to_file()
-                self.qt_sleep(3.6)
-            self.save_data_to_file()
+            
+            # Save all codes to Redis for stock_service to use
+            if self.redis_pub_client:
+                asyncio.run_coroutine_threadsafe(self.redis_pub_client.set("all_stock_codes", json.dumps(all_codes_with_market)), self.main_loop)
+                kiwoom_logger.info(f"✅ {len(all_codes_with_market)}개 종목 코드를 Redis에 저장했습니다.")
+
         except Exception as e:
             import traceback
-            print(f"🔥 전체 데이터 로딩 중 심각한 오류 발생: {e}")
+            kiwoom_logger.error(f"🔥 전체 데이터 로딩 중 심각한 오류 발생: {e}")
             traceback.print_exc()
-        finally:
-            self.data_loaded_event.set()
-            print("✅ 모든 데이터 로딩 작업 완료.")
 
 # --- 비동기 및 스레드 관리 ---
 def run_kiwoom_thread(instance: KiwoomAPI):
@@ -255,56 +159,48 @@ def run_kiwoom_thread(instance: KiwoomAPI):
     instance.initialize_ocx()
     instance.login()
     if instance.is_connected:
-        print("✅ 로그인 성공 확인. 데이터 로딩 프로세스를 시작합니다.")
-        instance.load_data_from_file()
-        print("ℹ️ API 안정화를 위해 20초 대기합니다...")
-        instance.qt_sleep(20)
+        kiwoom_logger.info("✅ 로그인 성공 확인. 데이터 로딩 프로세스를 시작합니다.")
         instance.load_all_company_data()
     else:
-        print("🔥 로그인 실패. 데이터 로딩을 진행할 수 없습니다.")
-        instance.data_loaded_event.set()
+        kiwoom_logger.error("🔥 로그인 실패. 데이터 로딩을 진행할 수 없습니다.")
     app_qt.exec_()
 
-# --- FastAPI 엔드포인트 및 웹소켓 ---
-@app.get("/api/all-companies")
-@limiter.limit("100/minute")
-async def get_all_companies(request: Request):
-    if not kiwoom_api_instance.data_loaded_event.is_set():
-        await kiwoom_api_instance.data_loaded_event.wait()
-    content = {"success": True, "data": kiwoom_api_instance.all_companies_data}
-    return JSONResponse(content=content, media_type="application/json; charset=utf-8")
-
-@app.websocket("/ws/realtime-price")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    connected_websockets.add(websocket)
-    print(f"✅ WebSocket 연결: {websocket.client}")
-    try:
-        while True:
-            message = await websocket.receive_text()
-            try:
-                data = json.loads(message)
-                if data.get("type") == "subscribe" and "codes" in data:
-                    codes = data["codes"]
-                    if codes:
-                        print(f"📬 클라이언트로부터 {len(codes)}개 종목 구독 요청 수신")
-                        kiwoom_api_instance.subscribe_realtime_data(codes)
-            except json.JSONDecodeError:
-                print("🔥 잘못된 형식의 WebSocket 메시지 수신")
-    except WebSocketDisconnect:
-        print(f"ℹ️ WebSocket 연결 해제: {websocket.client}")
-    finally:
-        connected_websockets.discard(websocket)
-        if not connected_websockets:
-            kiwoom_api_instance.disconnect_all_realtime()
-
-async def real_data_broadcaster():
+async def real_data_publisher(queue: asyncio.Queue, redis_client: redis.Redis):
     while True:
-        data = await real_data_queue.get()
+        data = await queue.get()
         msg = json.dumps({"type": "realtime", "data": data})
-        bcast = [sock.send_text(msg) for sock in connected_websockets]
-        await asyncio.gather(*bcast, return_exceptions=True)
+        if redis_client:
+            try:
+                await redis_client.publish("kiwoom_realtime_data", msg)
+                kiwoom_logger.info(f"✅ Redis에 실시간 데이터 발행: {msg[:50]}...")
+            except Exception as e:
+                kiwoom_logger.error(f"🔥 Redis 발행 중 오류 발생: {e}")
 
 # --- 메인 실행 ---
 if __name__ == '__main__':
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print("🚀 Kiwoom Realtime Server 시작...")
+    main_loop = asyncio.get_event_loop()
+    redis_client = redis.from_url(
+        f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', '6379')}",
+        decode_responses=True
+    )
+    kiwoom_api_instance = KiwoomAPI(real_data_queue, main_loop, redis_client)
+    
+    # Start the PyQt5 application in a separate thread
+    kiwoom_thread = threading.Thread(target=run_kiwoom_thread, args=(kiwoom_api_instance,))
+    kiwoom_thread.daemon = True
+    kiwoom_thread.start()
+
+    # Start the Redis publisher coroutine
+    main_loop.create_task(real_data_publisher(real_data_queue, redis_client))
+
+    try:
+        main_loop.run_forever()
+    except KeyboardInterrupt:
+        kiwoom_logger.info("서버 종료 요청 수신.")
+    finally:
+        if redis_client:
+            asyncio.run(redis_client.close())
+        if QApplication.instance():
+            QApplication.instance().quit()
+        kiwoom_logger.info("🚀 Kiwoom Realtime Server 종료.")

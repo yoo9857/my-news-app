@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
@@ -15,7 +15,7 @@ const portfolioStrategies = [
     {
       level: 1, name: '원금 보존 추구 (매우 안전)', displayName: '원금 보존 (매우 안전)', icon: ShieldCheck, color: "text-cyan-400",
       assets: [{ type: '개별 채권', detail: "만기일 '2027년 6월' 전후, 신용등급 'AAA' 또는 'AA+'" }, { type: 'ETF', detail: "KODEX 단기채권, TIGER 단기통안채" }],
-      goldenRule: { title: "만기 보유의 마법을 믿어라", description: "중간에 채권 가격이 하락하더라도 만기까지 보유하면 원금과 약속된 이자를 모두 받을 수 있습니다. 시장의 소음으로��터 당신의 자산을 지키는 가장 강력한 방패입니다." }
+      goldenRule: { title: "만기 보유의 마법을 믿어라", description: "중간에 채권 가격이 하락하더라도 만기까지 보유하면 원금과 약속된 이자를 모두 받을 수 있습니다. 시장의 소음으로부터 당신의 자산을 지키는 가장 강력한 방패입니다." }
     },
     {
       level: 2, name: '시장금리 + α 추구 (안전)', displayName: '시장금리+α (안전)', icon: Shield, color: "text-blue-400",
@@ -40,7 +40,7 @@ const portfolioStrategies = [
     {
       level: 6, name: '시장 추세 적극 활용 (공격)', displayName: '시장 추세 활용 (공격)', icon: Swords, color: "text-red-400",
       assets: [{ type: '위험자산', detail: "KODEX 200, TIGER 미국S&P500 등" }, { type: '안전자산', detail: "KODEX 단기채권" }],
-      goldenRule: { title: "3연속 손실의 멈춤 신호를 존중하라", description: "월��� 리밸런싱 결과 3개월 연속 손실 시, 4개월 차에는 100% 안전자산으로 전환 후 한 달간 쉬어 횡보장 손실을 방어합니다." }
+      goldenRule: { title: "3연속 손실의 멈춤 신호를 존중하라", description: "월별 리밸런싱 결과 3개월 연속 손실 시, 4개월 차에는 100% 안전자산으로 전환 후 한 달간 쉬어 횡보장 손실을 방어합니다." }
     },
     {
       level: 7, name: '변동성을 이용한 수익 극대화 (매우 공격)', displayName: '수익 극대화 (매우 공격)', icon: Rocket, color: "text-fuchsia-500",
@@ -49,9 +49,6 @@ const portfolioStrategies = [
     }
 ];
 
-interface WisePortfolioProps {
-  stockData: StockInfo[];
-}
 interface ScoredStock extends StockInfo {
   stabilityScore: number;
   growthScore: number;
@@ -127,17 +124,47 @@ const generateRecommendations = (level: number, stocks: StockInfo[]): Recommende
 
 
 // --- UI Components ---
-const WisePortfolio: React.FC<WisePortfolioProps> = ({ stockData }) => {
+export default function WisePortfolio() {
   const [riskTolerance, setRiskTolerance] = useState<number[]>([4]);
   const [selectedStrategy, setSelectedStrategy] = useState<typeof portfolioStrategies[0] | null>(null);
   const [recommendedStocks, setRecommendedStocks] = useState<RecommendedStock[] | null>(null);
   const { toast } = useToast();
 
+  const [stocks, setStocks] = useState<StockInfo[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      setIsLoading(true);
+      setFetchError(false);
+      try {
+        const response = await fetch('http://localhost:8001/api/all-companies?limit=1500');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const result = await response.json();
+        if (result.success && Array.isArray(result.data)) {
+          setStocks(result.data);
+        } else {
+          setFetchError(true);
+        }
+      } catch (error) {
+        console.error("Failed to fetch initial stock data for WisePortfolio:", error);
+        setFetchError(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchInitialData();
+  }, []);
+
   const currentProfile = useMemo(() => portfolioStrategies[riskTolerance[0] - 1], [riskTolerance]);
 
   const handleRecommendPortfolio = () => {
     setSelectedStrategy(currentProfile);
-    const recommendations = generateRecommendations(currentProfile.level, stockData);
+    const recommendations = generateRecommendations(currentProfile.level, stocks);
     setRecommendedStocks(recommendations);
     toast({
       title: "투자 전략 및 포트폴리오 생성 완료",
@@ -182,18 +209,18 @@ const WisePortfolio: React.FC<WisePortfolioProps> = ({ stockData }) => {
               {recommendedStocks && recommendedStocks.length > 0 && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.3 } }}>
                   <Card className="bg-slate-800/50 border-slate-700">
-                    <CardHeader><CardTitle className="text-lg font-semibold text-slate-300">포���폴리오 추천 예시</CardTitle><CardDescription className="text-sm text-slate-400">위 전략에 따라 생성된 5개 종목 예시입니다. (실제 투자 추천이 아닙니다)</CardDescription></CardHeader>
+                    <CardHeader><CardTitle className="text-lg font-semibold text-slate-300">포트폴리오 추천 예시</CardTitle><CardDescription className="text-sm text-slate-400">위 전략에 따라 생성된 5개 종목 예시입니다. (실제 투자 추천이 아닙니다)</CardDescription></CardHeader>
                     <CardContent>
                       <ul className="space-y-3">
                         {recommendedStocks.map(stock => (
-                          <li key={stock.stockCode} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-md border border-slate-700/50">
+                          <li key={stock.code} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-md border border-slate-700/50">
                             <div>
-                              <p className="font-semibold text-indigo-400">{stock.name} <span className="text-xs text-slate-500">({stock.stockCode})</span></p>
+                              <p className="font-semibold text-indigo-400">{stock.name} <span className="text-xs text-slate-500">({stock.code})</span></p>
                               <p className="text-xs text-slate-400">{stock.reason}</p>
                             </div>
                             <div className="text-right">
-                              <p className="font-mono text-slate-200">{parseInt(stock.currentPrice, 10).toLocaleString()}원</p>
-                              <p className={`text-xs font-semibold ${parseFloat(stock.changeRate) > 0 ? 'text-green-400' : parseFloat(stock.changeRate) < 0 ? 'text-red-400' : 'text-slate-500'}`}>{stock.changeRate}%</p>
+                              <p className="font-mono text-slate-200">{stock.price.toLocaleString()}원</p>
+                              <p className={`text-xs font-semibold ${stock.change_rate > 0 ? 'text-green-400' : stock.change_rate < 0 ? 'text-red-400' : 'text-slate-500'}`}>{stock.change_rate}%</p>
                             </div>
                           </li>
                         ))}
@@ -233,6 +260,4 @@ const WisePortfolio: React.FC<WisePortfolioProps> = ({ stockData }) => {
       </div>
     </TooltipProvider>
   );
-};
-
-export default WisePortfolio;
+}

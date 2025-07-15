@@ -1,19 +1,14 @@
 'use client';
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useDebounce } from 'use-debounce';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StockInfo } from '@/lib/types';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { Loader2, AlertTriangle, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 
-interface CompanyExplorerProps {
-  stockData: StockInfo[];
-  isLoading: boolean;
-  fetchError: boolean;
-}
+type SortKey = keyof StockInfo | 'currentPrice' | 'change_rate' | 'volume';
 
 const getChangeRateColor = (rate: number) => {
   if (rate > 0) return 'text-green-400';
@@ -27,92 +22,184 @@ const ChangeRateIcon = ({ rate }: { rate: number }) => {
   return null;
 };
 
-// Header component for the list
-const ListHeader = () => (
-  <div className="flex items-center bg-slate-900/80 flex-shrink-0 h-12 px-4 border-b border-slate-700 font-semibold text-slate-300 text-sm">
-    <div className="w-[40%]">종목명</div>
-    <div className="w-[20%] text-right">현재가</div>
-    <div className="w-[20%] text-right">등락률</div>
-    <div className="w-[20%] text-right">거래량</div>
-  </div>
-);
+const SortableListHeader = ({ sortConfig, requestSort }: {
+  sortConfig: { key: SortKey; direction: 'ascending' | 'descending' } | null;
+  requestSort: (key: SortKey) => void;
+}) => {
+  const headers: { key: SortKey; label: string; className: string }[] = [
+    { key: 'name', label: '종목명', className: 'w-[40%] cursor-pointer' },
+    { key: 'currentPrice', label: '현재가', className: 'w-[20%] text-right cursor-pointer' },
+    { key: 'change_rate', label: '등락률', className: 'w-[20%] text-right cursor-pointer' },
+    { key: 'volume', label: '거래량', className: 'w-[20%] text-right cursor-pointer' },
+  ];
 
-export default function CompanyExplorer({ stockData, isLoading, fetchError }: CompanyExplorerProps) {
+  const getSortIcon = (key: SortKey) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <ChevronsUpDown size={14} className="inline-block ml-1 text-slate-500" />;
+    }
+    return sortConfig.direction === 'ascending' ? 
+      <ArrowUp size={14} className="inline-block ml-1" /> : 
+      <ArrowDown size={14} className="inline-block ml-1" />;
+  };
+
+  return (
+    <div className="flex items-center bg-slate-900/80 flex-shrink-0 h-12 px-4 border-b border-slate-700 font-semibold text-slate-300 text-sm select-none">
+      {headers.map(({ key, label, className }) => (
+        <div key={key} className={className} onClick={() => requestSort(key)}>
+          {label}
+          {getSortIcon(key)}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default function CompanyExplorer() {
   const [searchTerm, setSearchTerm] = useState('');
   const [marketFilter, setMarketFilter] = useState<'ALL' | 'KOSPI' | 'KOSDAQ'>('ALL');
   const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'ascending' | 'descending' }>({ key: 'volume', direction: 'descending' });
 
-  const filteredCompanies = useMemo(() => {
-    let companies = stockData;
-    if (marketFilter !== 'ALL') {
-      companies = companies.filter(company => company.market === marketFilter);
+  const [stocks, setStocks] = useState<StockInfo[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+
+  const socketRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      setIsLoading(true);
+      setFetchError(false);
+      try {
+        const response = await fetch('http://localhost:8001/api/all-companies?limit=1500');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const result = await response.json();
+        if (result.success && Array.isArray(result.data)) {
+          setStocks(result.data);
+        } else {
+          setFetchError(true);
+        }
+      } catch (error) {
+        console.error("Failed to fetch initial stock data:", error);
+        setFetchError(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchInitialData();
+
+    // WebSocket for real-time price updates
+    if (!socketRef.current) {
+      const socket = new WebSocket('ws://localhost:8001/ws/realtime-price');
+      socketRef.current = socket;
+
+      socket.onopen = () => {
+        console.log("CompanyExplorer: WebSocket connection successful");
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'realtime-price') {
+            setStocks(prevStocks =>
+              prevStocks.map(stock =>
+                stock.code === data.code
+                  ? { ...stock, currentPrice: data.price, change_rate: data.change_rate }
+                  : stock
+              )
+            );
+          }
+        } catch (e) {
+          console.error('CompanyExplorer: Error processing WebSocket message:', e);
+        }
+      };
+
+      socket.onerror = (error) => {
+        console.error('CompanyExplorer: WebSocket Error:', error);
+      };
+
+      socket.onclose = (event) => {
+        console.log('CompanyExplorer: WebSocket connection closed:', event.reason);
+        socketRef.current = null; // Allow reconnection
+      };
     }
-    if (!debouncedSearchTerm) return companies;
-    const lowerCaseSearchTerm = debouncedSearchTerm.toLowerCase();
-    return companies.filter(
-      company => company.name.toLowerCase().includes(lowerCaseSearchTerm) || 
-                 company.stockCode.includes(lowerCaseSearchTerm)
-    );
-  }, [stockData, debouncedSearchTerm, marketFilter]);
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.close();
+        socketRef.current = null;
+      }
+    };
+  }, []);
+
+  const requestSort = (key: SortKey) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedAndFilteredCompanies = useMemo(() => {
+    let filtered = [...stocks];
+
+    if (marketFilter !== 'ALL') {
+      filtered = filtered.filter(stock => stock.market === marketFilter);
+    }
+
+    if (debouncedSearchTerm) {
+      const lowercasedTerm = debouncedSearchTerm.toLowerCase();
+      filtered = filtered.filter(stock =>
+        (stock.name && stock.name.toLowerCase().includes(lowercasedTerm)) ||
+        (stock.code && stock.code.includes(debouncedSearchTerm))
+      );
+    }
+
+    if (sortConfig !== null) {
+      filtered.sort((a, b) => {
+        const aValue = a[sortConfig.key as keyof StockInfo] || 0;
+        const bValue = b[sortConfig.key as keyof StockInfo] || 0;
+        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [stocks, debouncedSearchTerm, marketFilter, sortConfig]);
 
   const parentRef = useRef<HTMLDivElement>(null);
-
   const rowVirtualizer = useVirtualizer({
-    count: filteredCompanies.length,
+    count: sortedAndFilteredCompanies.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 52, // Row height in pixels
+    estimateSize: () => 52,
     overscan: 10,
   });
 
-  if (isLoading) {
+  const renderContent = () => {
+    if (isLoading) {
+      return <div className="flex items-center justify-center h-48"><Loader2 className="animate-spin text-slate-400" size={32} /></div>;
+    }
+    if (fetchError) {
+      return <div className="flex flex-col items-center justify-center h-48 text-red-400"><AlertTriangle size={32} /><p className="mt-2">데이터를 불러오는 데 실패했습니다.</p></div>;
+    }
+    if (sortedAndFilteredCompanies.length === 0) {
+      return <div className="flex items-center justify-center h-48 text-slate-400">검색 결과가 없습니다.</div>;
+    }
     return (
-      <div className="flex flex-col justify-center items-center h-full text-center">
-        <Loader2 className="h-10 w-10 text-indigo-400 animate-spin mb-4" />
-        <p className="text-slate-300">기업 데이터를 불러오는 중입니다...</p>
-      </div>
-    );
-  }
-
-  if (fetchError) {
-    return (
-      <div className="flex flex-col justify-center items-center h-full text-center">
-        <AlertTriangle className="h-10 w-10 text-red-500 mb-4" />
-        <p className="text-red-400 font-semibold">데이터 로딩 실패</p>
-        <Button onClick={() => window.location.reload()} className="mt-4 bg-indigo-600 hover:bg-indigo-700">새로고침</Button>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="flex flex-col h-full">
-      {/* --- Controls --- */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-4">
-        <Input 
-          placeholder="종목명 또는 코드로 검색..." 
-          value={searchTerm} 
-          onChange={e => setSearchTerm(e.target.value)}
-          className="flex-grow bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-indigo-500"
-        />
-        <Tabs defaultValue="ALL" onValueChange={(value) => setMarketFilter(value as any)} className="w-full sm:w-auto">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="ALL">전체</TabsTrigger>
-            <TabsTrigger value="KOSPI">코스피</TabsTrigger>
-            <TabsTrigger value="KOSDAQ">코스닥</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-
-      {/* --- Virtualized List Container --- */}
-      <div className="flex-grow rounded-lg border border-slate-700/50 overflow-hidden flex flex-col">
-        <ListHeader />
-        <div ref={parentRef} className="flex-grow overflow-auto">
-          <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
-            {rowVirtualizer.getVirtualItems().map(virtualItem => {
-              const stock = filteredCompanies[virtualItem.index];
-              const rate = parseFloat(stock.changeRate);
-              return (
+      <div ref={parentRef} className="flex-grow overflow-auto" style={{ height: 'calc(100vh - 300px)' }}>
+        <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
+          {rowVirtualizer.getVirtualItems().map(virtualItem => {
+            const stock = sortedAndFilteredCompanies[virtualItem.index];
+            const currentPrice = stock.currentPrice || 0;
+            const rate = stock.change_rate || 0;
+            const volume = stock.volume || 0;
+            return (
+              <a href={`/stock/${stock.code}`} key={virtualItem.key} target="_blank" rel="noopener noreferrer">
                 <div
-                  key={virtualItem.key}
                   style={{
                     position: 'absolute',
                     top: 0,
@@ -121,26 +208,47 @@ export default function CompanyExplorer({ stockData, isLoading, fetchError }: Co
                     height: `${virtualItem.size}px`,
                     transform: `translateY(${virtualItem.start}px)`,
                   }}
-                  className="flex items-center px-4 border-b border-slate-800 hover:bg-slate-800/50"
+                  className="flex items-center px-4 border-b border-slate-800 hover:bg-slate-800/50 transition-colors duration-150"
                 >
                   <div className="w-[40%] font-medium text-slate-200 truncate">
-                    {stock.name} <span className="text-slate-500 text-xs">({stock.stockCode})</span>
+                    {stock.name} <span className="text-slate-500 text-xs">({stock.code})</span>
                   </div>
-                  <div className="w-[20%] text-right text-slate-200 font-mono">
-                    {parseInt(stock.currentPrice, 10).toLocaleString()}원
-                  </div>
+                  <div className="w-[20%] text-right text-slate-200 font-mono">{currentPrice.toLocaleString()}원</div>
                   <div className={`w-[20%] text-right font-semibold ${getChangeRateColor(rate)}`}>
                     <ChangeRateIcon rate={rate} />
-                    {stock.changeRate}%
+                    {rate.toFixed(2)}%
                   </div>
-                  <div className="w-[20%] text-right text-slate-400 font-mono">
-                    {parseInt(stock.volume, 10).toLocaleString()}
-                  </div>
+                  <div className="w-[20%] text-right text-slate-400 font-mono">{volume.toLocaleString()}</div>
                 </div>
-              );
-            })}
-          </div>
+              </a>
+            );
+          })}
         </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex flex-col sm:flex-row gap-4 mb-4">
+        <Input 
+          placeholder="종목명 또는 코드로 검색..." 
+          value={searchTerm} 
+          onChange={e => setSearchTerm(e.target.value)}
+          className="flex-grow bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-indigo-500"
+        />
+        <Tabs defaultValue="ALL" onValueChange={(value) => setMarketFilter(value as any)} className="w-full sm:w-auto">
+          <TabsList className="grid w-full grid-cols-3 bg-slate-800 border-slate-600">
+            <TabsTrigger value="ALL">전체</TabsTrigger>
+            <TabsTrigger value="KOSPI">코스피</TabsTrigger>
+            <TabsTrigger value="KOSDAQ">코스닥</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <div className="flex-grow rounded-lg border border-slate-700/50 overflow-hidden flex flex-col">
+        <SortableListHeader sortConfig={sortConfig} requestSort={requestSort} />
+        {renderContent()}
       </div>
     </div>
   );

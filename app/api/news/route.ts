@@ -30,15 +30,25 @@ function analyzeSentiment(text: string): "긍정적" | "부정적" | "중립적"
 
 async function fetchNaverNews(query: string): Promise<NewsItem[]> {
   const { NAVER_CLIENT_ID, NAVER_CLIENT_SECRET } = process.env;
-  if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) return [];
+  console.log('DEBUG: Naver API Keys - ID:', NAVER_CLIENT_ID ? 'Set' : 'Not Set', 'Secret:', NAVER_CLIENT_SECRET ? 'Set' : 'Not Set');
+  if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
+    console.error('Naver News Error: NAVER_CLIENT_ID or NAVER_CLIENT_SECRET is not set.');
+    return [];
+  }
   try {
     const url = `https://openapi.naver.com/v1/search/news.json?query=${encodeURIComponent(query)}&display=20&sort=date`;
     const response = await fetch(url, {
       headers: { "X-Naver-Client-Id": NAVER_CLIENT_ID, "X-Naver-Client-Secret": NAVER_CLIENT_SECRET },
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
     });
-    if (!response.ok) return [];
+    if (!response.ok) {
+      console.error(`Naver News API Error: ${response.status} - ${response.statusText}`);
+      const errorBody = await response.text();
+      console.error('Naver News API Error Body:', errorBody);
+      return [];
+    }
     const data = await response.json();
+    console.log('DEBUG: Naver News API Response Data:', data);
     return data.items?.map((item: any) => {
         const title = cleanText(item.title);
         const description = cleanText(item.description);
@@ -50,15 +60,21 @@ async function fetchNaverNews(query: string): Promise<NewsItem[]> {
             relatedCompanies: [], // 필요시 findRelatedCompanies 구현
         };
     }) || [];
-  } catch (e) { console.error("Naver News Error:", e); return []; }
+  } catch (e) { console.error("Naver News Fetch Error:", e); return []; }
 }
 
 async function fetchGoogleNews(query: string): Promise<NewsItem[]> {
     try {
         const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
         const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT) });
-        if (!response.ok) return [];
+        if (!response.ok) {
+            console.error(`Google News API Error: ${response.status} - ${response.statusText}`);
+            const errorBody = await response.text();
+            console.error('Google News API Error Body:', errorBody);
+            return [];
+        }
         const result = await parseStringPromise(await response.text(), { explicitArray: false });
+        console.log('DEBUG: Google News API Response Result:', result);
         const items = result.rss.channel.item || [];
         const newsItems = Array.isArray(items) ? items : [items];
 
@@ -72,7 +88,7 @@ async function fetchGoogleNews(query: string): Promise<NewsItem[]> {
                 relatedCompanies: [],
             };
         });
-    } catch (e) { console.error("Google News Error:", e); return []; }
+    } catch (e) { console.error("Google News Fetch Error:", e); return []; }
 }
 
 

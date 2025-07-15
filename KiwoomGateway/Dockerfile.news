@@ -1,0 +1,18 @@
+FROM python:3.10-slim
+
+RUN apt-get update && apt-get install -y netcat-traditional && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y netcat-traditional && rm -rf /var/lib/apt/lists/*
+
+COPY ./KiwoomGateway/requirements-news.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY ./KiwoomGateway/news_service.py /app/
+COPY ./KiwoomGateway/entrypoint-news.sh /app/
+COPY ./KiwoomGateway/wait-for-it.sh /usr/local/bin/
+
+RUN chmod +x /app/entrypoint-news.sh
+
+CMD ["/app/entrypoint-news.sh"]

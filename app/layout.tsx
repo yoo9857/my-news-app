@@ -1,19 +1,18 @@
+'use client';
+
 import type { Metadata, Viewport } from 'next';
-import './globals.css'; // 전역 스타일 임포트
+import './globals.css';
 import { Noto_Sans_KR } from 'next/font/google';
-import { ThemeProvider } from '@/components/theme-provider'; // ThemeProvider 임포트
-import { Toaster } from "@/components/ui/toaster"; // Toaster 컴포넌트 임포트
-import Footer from '@/components/footer'; // Footer 컴포넌트 임포트
+import { ThemeProvider } from '@/components/theme-provider';
+import { Toaster } from "@/components/ui/toaster";
+import Footer from '@/components/footer';
+import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 const notoSansKr = Noto_Sans_KR({
   subsets: ['latin'],
   weight: ['400', '700'],
 });
-
-export const metadata: Metadata = {
-  title: '대한민국 투자 플랫폼',
-  description: 'AI 기반 한국 주식 시장 분석 및 투자 관리 플랫폼',
-};
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -27,12 +26,34 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    // This check ensures the code runs only on the client-side
+    if (typeof window !== 'undefined') {
+      const logVisit = async () => {
+        try {
+          await fetch('http://localhost:8003/api/log_visit', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ path: pathname }),
+          });
+        } catch (error) {
+          console.error('Failed to log visit:', error);
+        }
+      };
+      logVisit();
+    }
+  }, [pathname]);
+
   return (
     <html lang="ko" suppressHydrationWarning>
       <body className={`${notoSansKr.className} antialiased bg-[#0F172A] text-gray-100`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark" // 기본 다크 모드 설정
+          defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >
@@ -40,7 +61,7 @@ export default function RootLayout({
             <main className="flex-1">{children}</main>
             <Footer />
           </div>
-          <Toaster /> {/* 토스트 알림을 위한 Toaster 컴포넌트 추가 */}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

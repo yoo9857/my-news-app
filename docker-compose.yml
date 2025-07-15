@@ -1,0 +1,123 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: my_news_app_postgres
+    env_file: ./.env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db-init/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    command: postgres
+    networks:
+      - my_news_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: my_news_app_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - my_news_network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: myuser
+      RABBITMQ_DEFAULT_PASS: mypassword
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - my_news_network
+
+  news-worker:
+    build:
+      context: .
+      dockerfile: ./KiwoomGateway/Dockerfile.news-worker
+    container_name: my_news_app_news_worker
+    env_file: ./.env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    command: python news_worker.py
+    networks:
+      - my_news_network
+
+  #  kiwoom-realtime-bridge:
+#    build:
+#      context: .
+#      dockerfile: ./KiwoomGateway/Dockerfile.kiwoom-realtime-bridge
+#    container_name: my_news_app_kiwoom_realtime_bridge
+#    env_file: ./.env
+#    depends_on:
+#      - redis
+#    command: python kiwoom_realtime_server.py
+#    networks:
+#      - my_news_network
+
+  stock-service:
+    build:
+      context: .
+      dockerfile: ./KiwoomGateway/Dockerfile.stock
+    container_name: my_news_app_stock_service
+    env_file: ./.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "8001:8001"
+    command: uvicorn stock_service:app --host 0.0.0.0 --port 8001
+    networks:
+      - my_news_network
+
+  news-service:
+    build:
+      context: .
+      dockerfile: ./KiwoomGateway/Dockerfile.news
+    container_name: my_news_app_news_service
+    env_file: ./.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "8002:8002"
+    command: /app/entrypoint-news.sh
+    networks:
+      - my_news_network
+
+  admin-service:
+    build:
+      context: .
+      dockerfile: ./KiwoomGateway/Dockerfile.admin
+    container_name: my_news_app_admin_service
+    env_file: ./.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8003:8003"
+    command: uvicorn admin_service:app --host 0.0.0.0 --port 8003
+    networks:
+      - my_news_network
+
+volumes:
+  postgres_data:
+
+networks:
+  my_news_network:

@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 
 // --- Types ---
 interface Company {
-  stockCode: string;
+  code: string; // Changed from stockCode to code to match StockInfo
   name: string;
   market: string;
   marketCap?: string;
@@ -23,7 +23,7 @@ interface PortfolioItem extends Company {
 }
 
 // --- Main Component ---
-const PortfolioCustomizer: React.FC = () => {
+export default function PortfolioCustomizer() {
   const [allCompanies, setAllCompanies] = useState<Company[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,19 +36,26 @@ const PortfolioCustomizer: React.FC = () => {
     const fetchCompanies = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://localhost:8000/api/all-companies');
+        const response = await fetch('http://localhost:8001/api/all-companies');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const result = await response.json();
         if (result.success && Array.isArray(result.data)) {
-          setAllCompanies(result.data);
+          // Map StockInfo to Company type for PortfolioCustomizer
+          setAllCompanies(result.data.map((stock: any) => ({
+            code: stock.code,
+            name: stock.name,
+            market: stock.market,
+            marketCap: stock.market_cap ? String(stock.market_cap) : undefined, // Convert number to string
+            currentPrice: stock.currentPrice ? String(stock.currentPrice) : undefined, // Convert number to string
+          })));
         } else {
           throw new Error('Invalid data format received from server.');
         }
       } catch (e: any) {
         console.error("Failed to fetch company data:", e);
-        setError("데이터 서버에 연결할 수 없습니다. KiwoomGateway 서버가 실행 중인지 확인해주세요.");
+        setError("데이터 서버에 연결할 수 없습니다. stock-service가 실행 중인지 확인해주세요.");
       } finally {
         setLoading(false);
       }
@@ -63,14 +70,14 @@ const PortfolioCustomizer: React.FC = () => {
     return allCompanies
       .filter(company =>
         company.name.toLowerCase().includes(lowercasedTerm) ||
-        company.stockCode.includes(searchTerm)
+        company.code.includes(searchTerm)
       )
       .slice(0, 50); // Prevent rendering too many items
   }, [searchTerm, allCompanies]);
 
   // --- Portfolio Management ---
   const addToPortfolio = (company: Company) => {
-    if (portfolio.some(item => item.stockCode === company.stockCode)) {
+    if (portfolio.some(item => item.code === company.code)) {
       toast({
         variant: "destructive",
         title: "종목 중복",
@@ -82,13 +89,13 @@ const PortfolioCustomizer: React.FC = () => {
     setSearchTerm('');
   };
 
-  const removeFromPortfolio = (stockCode: string) => {
-    setPortfolio(portfolio.filter(item => item.stockCode !== stockCode));
+  const removeFromPortfolio = (code: string) => {
+    setPortfolio(portfolio.filter(item => item.code !== code));
   };
 
-  const updateWeight = (stockCode: string, newWeight: number) => {
+  const updateWeight = (code: string, newWeight: number) => {
     setPortfolio(portfolio.map(item =>
-      item.stockCode === stockCode ? { ...item, weight: Math.max(0, Math.min(100, newWeight)) } : item
+      item.code === code ? { ...item, weight: Math.max(0, Math.min(100, newWeight)) } : item
     ));
   };
   
@@ -127,10 +134,10 @@ const PortfolioCustomizer: React.FC = () => {
             ) : searchResults.length > 0 ? (
               <ul className="space-y-2">
                 {searchResults.map(company => (
-                  <li key={company.stockCode} className="flex items-center justify-between p-2 rounded-md bg-slate-900/50 hover:bg-slate-700/50 transition-colors">
+                  <li key={company.code} className="flex items-center justify-between p-2 rounded-md bg-slate-900/50 hover:bg-slate-700/50 transition-colors">
                     <div>
                       <p className="font-semibold text-slate-200">{company.name}</p>
-                      <p className="text-xs text-slate-500">{company.stockCode} &middot; {company.market}</p>
+                      <p className="text-xs text-slate-500">{company.code} &middot; {company.market}</p>
                     </div>
                     <Button size="sm" variant="ghost" onClick={() => addToPortfolio(company)}>
                       <PlusCircle className="h-5 w-5 text-green-400" />
@@ -165,7 +172,7 @@ const PortfolioCustomizer: React.FC = () => {
               <ul className="space-y-3">
                 {portfolio.map(item => (
                   <motion.li
-                    key={item.stockCode}
+                    key={item.code}
                     layout
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -174,13 +181,13 @@ const PortfolioCustomizer: React.FC = () => {
                   >
                     <div className="w-1/3">
                       <p className="font-bold text-indigo-400">{item.name}</p>
-                      <p className="text-xs text-slate-500">{item.stockCode}</p>
+                      <p className="text-xs text-slate-500">{item.code}</p>
                     </div>
                     <div className="flex items-center w-2/3">
                       <Input
                         type="number"
                         value={item.weight}
-                        onChange={(e) => updateWeight(item.stockCode, parseInt(e.target.value, 10) || 0)}
+                        onChange={(e) => updateWeight(item.code, parseInt(e.target.value, 10) || 0)}
                         className="w-20 text-center bg-slate-800 border-slate-600"
                         min="0"
                         max="100"
@@ -192,11 +199,11 @@ const PortfolioCustomizer: React.FC = () => {
                             min="0"
                             max="100"
                             value={item.weight}
-                            onChange={(e) => updateWeight(item.stockCode, parseInt(e.target.value, 10))}
+                            onChange={(e) => updateWeight(item.code, parseInt(e.target.value, 10))}
                             className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer"
                           />
                       </div>
-                      <Button size="sm" variant="ghost" onClick={() => removeFromPortfolio(item.stockCode)} className="ml-4">
+                      <Button size="sm" variant="ghost" onClick={() => removeFromPortfolio(item.code)} className="ml-4">
                         <XCircle className="h-5 w-5 text-red-500" />
                       </Button>
                     </div>
@@ -213,6 +220,4 @@ const PortfolioCustomizer: React.FC = () => {
       </Card>
     </div>
   );
-};
-
-export default PortfolioCustomizer;
+}

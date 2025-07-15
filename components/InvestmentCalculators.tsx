@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
-export default function InvestmentCalculators() {
+const InvestmentCalculators = React.memo(() => {
   return (
     <div className="space-y-8">
       <h2 className="text-2xl font-bold text-slate-200 text-center">투자 분석 도구</h2>
@@ -65,4 +65,6 @@ export default function InvestmentCalculators() {
       </div>
     </div>
   );
-}
+});
+
+export default InvestmentCalculators;

@@ -1,0 +1,16 @@
+FROM python:3.10-slim
+
+# Install dos2unix to fix potential line ending issues
+RUN apt-get update && apt-get install -y dos2unix netcat-traditional && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY ./KiwoomGateway/news_worker.py /app/
+COPY ./KiwoomGateway/entrypoint-news-worker.sh /app/
+COPY ./KiwoomGateway/wait-for-it.sh /usr/local/bin/
+
+# Convert files to unix format and grant execution rights
+RUN dos2unix /app/entrypoint-news-worker.sh && chmod +x /app/entrypoint-news-worker.sh
+RUN dos2unix /app/news_worker.py
+
+ENTRYPOINT ["/app/entrypoint-news-worker.sh"]

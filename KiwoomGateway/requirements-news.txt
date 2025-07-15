@@ -1,0 +1,4 @@
+fastapi
+uvicorn
+asyncpg
+aio_pika
