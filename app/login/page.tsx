@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext'; // Import useAuth
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -14,6 +15,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { login } = useAuth(); // Get the login function from context
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +23,7 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const response = await fetch('`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/`token', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -38,17 +40,21 @@ export default function LoginPage() {
       }
 
       const data = await response.json();
-      // Store the token securely (e.g., in localStorage or a cookie)
-      localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('token_type', data.token_type);
+      // Use the login function from context to update global state
+      await login(data.access_token);
 
-      router.push('/profile'); // Redirect to a protected page
+      router.push('/'); // Redirect to the main page after login
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
+
+  const handleGoogleLogin = () => {
+    // Redirect to the backend's Google auth endpoint
+    window.location.href = `${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/auth/google`;
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-900">
@@ -84,7 +90,7 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Logging in...' : 'Login'}
             </Button>
-            <Button type="button" className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => window.location.href = '`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/`auth/google'}>
+            <Button type="button" className="w-full bg-blue-600 hover:bg-blue-700" onClick={handleGoogleLogin}>
               Google로 로그인
             </Button>
           </form>
