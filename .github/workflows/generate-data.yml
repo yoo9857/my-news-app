@@ -6,6 +6,9 @@ on:
       - main  # Or your main branch name
   workflow_dispatch: # Allows manual triggering
 
+permissions:
+  contents: write # Give the workflow write permission to the repository
+
 jobs:
   generate-data:
     runs-on: ubuntu-latest

@@ -157,22 +157,17 @@ services:
       - my_news_network
 
   data-generator:
+    network_mode: "host"
     build:
       context: .
       dockerfile: ./KiwoomGateway/Dockerfile.generate-data
     container_name: my_news_app_data_generator
     environment:
-      - DB_USER=postgres
-      - DB_PASSWORD=gksqlstkfkd2!A
-      - DB_HOST=2406:da12:b78:de01:b2f6:72e0:299a:df5b
-      - DB_PORT=5432
-      - DB_NAME=postgres
+      - POSTGRES_URL=postgres://postgres:gksqlstkfkd2!A@db.cwyytomdzmisapzgkoox.supabase.co:5432/postgres
     volumes:
       - ./public:/app/public
     depends_on:
       - postgres
-    networks:
-      - my_news_network
 
 volumes:
   postgres_data:
