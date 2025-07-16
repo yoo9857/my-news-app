@@ -152,7 +152,8 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: my_news_app_cloudflared
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token TUNNEL_TOKEN_PLACEHOLDER
+    command: tunnel --no-autoupdate run --token
+     eyJhIjoiNGJlZWZlNjllMjk0MWVjMzU0ODA3ZjNhY2NjMWYwM2IiLCJ0IjoiNjk5YzRiMmEtOTU4Zi00N2JkLWIyODUtZGRkMWY4YjRkYWYxIiwicyI6Ik56SXlNRGM0WVdZdE9UYzVZaTAwWkRsakxUazJOamN0TkRVd056ZGlNems1T1RSbSJ9
     networks:
       - my_news_network
 

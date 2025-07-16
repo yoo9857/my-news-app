@@ -92,6 +92,7 @@ export default function CompanyExplorer() {
     fetchInitialData();
 
     // WebSocket for real-time price updates
+    /*
     if (!socketRef.current || socketRef.current.readyState === WebSocket.CLOSED) {
       const wsUrl = process.env.NEXT_PUBLIC_STOCK_API_URL?.replace(/^http/, 'ws');
       const socket = new WebSocket(`${wsUrl}/ws/realtime-price`);
@@ -127,6 +128,7 @@ export default function CompanyExplorer() {
         socketRef.current = null; // Allow reconnection
       };
     }
+    */
 
     return () => {
       if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
