@@ -94,13 +94,14 @@ export default function CompanyExplorer() {
       setIsLoading(true);
       setFetchError(false);
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_STOCK_API_URL}/api/all-companies?limit=1500`);
+        const response = await fetch('/data/stocks.json');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const result = await response.json();
-        if (result.success && Array.isArray(result.data)) {
-          setStocks(result.data);
+        // The JSON file is an array of stock objects directly
+        if (Array.isArray(result)) {
+          setStocks(result);
         } else {
           setFetchError(true);
         }
