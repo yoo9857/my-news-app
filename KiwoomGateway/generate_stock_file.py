@@ -13,12 +13,14 @@ OUTPUT_FILE = os.path.join(OUTPUT_DIR, "stocks.json")
 
 async def generate_file():
     """
-    Connects to the database, fetches all stock data, and saves it to a JSON file.
+    Connects to the database using asyncpg with individual connection params, 
+    fetches all stock data, and saves it to a JSON file.
     """
-    print("Connecting to the database...")
+    print("Connecting to the database with asyncpg...")
     conn = None
     try:
-        conn = await asyncpg.connect(os.getenv("POSTGRES_URL"))
+        # Use the full POSTGRES_URL for connection
+        conn = await asyncpg.connect(dsn=os.getenv("POSTGRES_URL"))
         print("Database connection successful.")
 
         print("Fetching stock data...")

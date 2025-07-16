@@ -152,8 +152,20 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: my_news_app_cloudflared
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token
-     eyJhIjoiNGJlZWZlNjllMjk0MWVjMzU0ODA3ZjNhY2NjMWYwM2IiLCJ0IjoiNjk5YzRiMmEtOTU4Zi00N2JkLWIyODUtZGRkMWY4YjRkYWYxIiwicyI6Ik56SXlNRGM0WVdZdE9UYzVZaTAwWkRsakxUazJOamN0TkRVd056ZGlNems1T1RSbSJ9
+    command: tunnel --no-autoupdate run --token eyJhIjoiNGJlZWZlNjllMjk0MWVjMzU0ODA3ZjNhY2NjMWYwM2IiLCJ0IjoiNjk5YzRiMmEtOTU4Zi00N2JkLWIyODUtZGRkMWY4YjRkYWYxIiwicyI6Ik56SXlNRGM0WVdZdE9UYzVZaTAwWkRsakxUazJOamN0TkRVd056ZGlNems1T1RSbSJ9
+    networks:
+      - my_news_network
+
+  data-generator:
+    build:
+      context: .
+      dockerfile: ./KiwoomGateway/Dockerfile.generate-data
+    container_name: my_news_app_data_generator
+    env_file: ./.env
+    volumes:
+      - ./public:/app/public
+    depends_on:
+      - postgres
     networks:
       - my_news_network
 

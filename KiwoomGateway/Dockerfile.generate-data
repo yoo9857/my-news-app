@@ -1,0 +1,19 @@
+# Use an official Python runtime as a parent image
+FROM python:3.10-slim
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy the requirements file into the container at /app
+# We will create a requirements file for this service
+COPY ./KiwoomGateway/requirements-generator.txt /app/
+
+# Install any needed packages specified in requirements.txt
+RUN pip install --no-cache-dir -r requirements-generator.txt
+
+# Copy the rest of the application's code into the container
+COPY ./KiwoomGateway /app/
+
+# The command to run when the container starts
+# This will be overridden by the docker-compose command, but it's good practice to have a default.
+CMD ["python", "generate_stock_file.py"]
