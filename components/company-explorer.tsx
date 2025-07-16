@@ -54,6 +54,29 @@ const SortableListHeader = ({ sortConfig, requestSort }: {
   );
 };
 
+// Function to check if the Korean stock market is open
+const isMarketOpenInKorea = () => {
+  const now = new Date();
+  const kstOffset = 9 * 60; // KST is UTC+9
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const kstNow = new Date(utc + (kstOffset * 60000));
+
+  const dayOfWeek = kstNow.getDay(); // 0 = Sunday, 6 = Saturday
+  const hour = kstNow.getHours();
+  const minute = kstNow.getMinutes();
+
+  // Market is open on weekdays (Monday to Friday)
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    return false;
+  }
+
+  // Market hours: 9:00 AM to 3:30 PM
+  const marketOpen = hour > 9 || (hour === 9 && minute >= 0);
+  const marketClose = hour < 15 || (hour === 15 && minute <= 30);
+
+  return marketOpen && marketClose;
+};
+
 export default function CompanyExplorer() {
   const [searchTerm, setSearchTerm] = useState('');
   const [marketFilter, setMarketFilter] = useState<'ALL' | 'KOSPI' | 'KOSDAQ'>('ALL');
@@ -91,44 +114,47 @@ export default function CompanyExplorer() {
 
     fetchInitialData();
 
-    // WebSocket for real-time price updates
-    /*
-    if (!socketRef.current || socketRef.current.readyState === WebSocket.CLOSED) {
-      const wsUrl = process.env.NEXT_PUBLIC_STOCK_API_URL?.replace(/^http/, 'ws');
-      const socket = new WebSocket(`${wsUrl}/ws/realtime-price`);
-      socketRef.current = socket;
+    // WebSocket for real-time price updates, ONLY if market is open
+    if (isMarketOpenInKorea()) {
+      console.log("Market is open. Attempting WebSocket connection...");
+      if (!socketRef.current || socketRef.current.readyState === WebSocket.CLOSED) {
+        const wsUrl = process.env.NEXT_PUBLIC_STOCK_API_URL?.replace(/^http/, 'ws');
+        const socket = new WebSocket(`${wsUrl}/ws/realtime-price`);
+        socketRef.current = socket;
 
-      socket.onopen = () => {
-        console.log("CompanyExplorer: WebSocket connection successful");
-      };
+        socket.onopen = () => {
+          console.log("CompanyExplorer: WebSocket connection successful");
+        };
 
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'realtime-price') {
-            setStocks(prevStocks =>
-              prevStocks.map(stock =>
-                stock.code === data.code
-                  ? { ...stock, currentPrice: data.price, change_rate: data.change_rate }
-                  : stock
-              )
-            );
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'realtime-price') {
+              setStocks(prevStocks =>
+                prevStocks.map(stock =>
+                  stock.code === data.code
+                    ? { ...stock, currentPrice: data.price, change_rate: data.change_rate }
+                    : stock
+                )
+              );
+            }
+          } catch (e) {
+            console.error('CompanyExplorer: Error processing WebSocket message:', e);
           }
-        } catch (e) {
-          console.error('CompanyExplorer: Error processing WebSocket message:', e);
-        }
-      };
+        };
 
-      socket.onerror = (error) => {
-        console.error('CompanyExplorer: WebSocket Error:', error);
-      };
+        socket.onerror = (error) => {
+          console.error('CompanyExplorer: WebSocket Error:', error);
+        };
 
-      socket.onclose = (event) => {
-        console.log('CompanyExplorer: WebSocket connection closed:', event.reason);
-        socketRef.current = null; // Allow reconnection
-      };
+        socket.onclose = (event) => {
+          console.log('CompanyExplorer: WebSocket connection closed:', event.reason);
+          socketRef.current = null; // Allow reconnection
+        };
+      }
+    } else {
+      console.log("Market is closed. Skipping WebSocket connection.");
     }
-    */
 
     return () => {
       if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {

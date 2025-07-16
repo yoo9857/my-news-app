@@ -98,6 +98,7 @@ async def shutdown_event():
 
 @app.get("/api/all-companies")
 async def get_all_companies(limit: int = 1500):
+    print("======== Request received at /api/all-companies! ========")
     if is_market_open():
         # During market hours, fetch from Redis cache (updated by kiwoom_realtime_server)
         # Or, if direct real-time data is needed, stock_service would subscribe to individual codes
