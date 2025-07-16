@@ -161,7 +161,12 @@ services:
       context: .
       dockerfile: ./KiwoomGateway/Dockerfile.generate-data
     container_name: my_news_app_data_generator
-    env_file: ./.env
+    environment:
+      - DB_USER=postgres
+      - DB_PASSWORD=gksqlstkfkd2!A
+      - DB_HOST=2406:da12:b78:de01:b2f6:72e0:299a:df5b
+      - DB_PORT=5432
+      - DB_NAME=postgres
     volumes:
       - ./public:/app/public
     depends_on:

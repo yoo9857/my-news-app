@@ -1,0 +1,42 @@
+name: Generate Static Data
+
+on:
+  push:
+    branches:
+      - main  # Or your main branch name
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  generate-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install asyncpg python-dotenv
+
+      - name: Generate data file
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+        run: |
+          python KiwoomGateway/generate_stock_file.py
+      
+      - name: Commit and push if changed
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions-bot@github.com"
+          git add public/data/stocks.json
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Automated: Update stock data"
+            git push
+          fi
