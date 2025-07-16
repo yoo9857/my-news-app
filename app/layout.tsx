@@ -29,7 +29,9 @@ export default function RootLayout({
   const pathname = usePathname();
 
   useEffect(() => {
-    // This check ensures the code runs only on the client-side
+    // 방문 기록 기능은 Vercel Analytics 또는 다른 전문 도구로 대체하는 것을 권장합니다.
+    // 로컬 백엔드 API 호출로 인한 네트워크 오류를 방지하기 위해 비활성화합니다.
+    /*
     if (typeof window !== 'undefined') {
       const logVisit = async () => {
         try {
@@ -46,6 +48,7 @@ export default function RootLayout({
       };
       logVisit();
     }
+    */
   }, [pathname]);
 
   return (
