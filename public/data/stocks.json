@@ -1,1 +1,11 @@
-[]
+[
+  {
+    "code": "005930",
+    "name": "삼성전자",
+    "market": "KOSPI",
+    "currentPrice": 75000,
+    "change_rate": 0,
+    "volume": 0,
+    "market_cap": 0
+  }
+]
