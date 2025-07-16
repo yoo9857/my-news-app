@@ -1,2 +1,2 @@
-asyncpg
+psycopg[binary,pool]
 python-dotenv

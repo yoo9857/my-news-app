@@ -23,7 +23,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install asyncpg python-dotenv
+          pip install "psycopg[binary,pool]" python-dotenv
 
       - name: Generate data file
         env:

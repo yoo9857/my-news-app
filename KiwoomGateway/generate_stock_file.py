@@ -1,5 +1,5 @@
 import os
-import asyncpg
+import psycopg
 import json
 import asyncio
 from dotenv import load_dotenv
@@ -13,42 +13,51 @@ OUTPUT_FILE = os.path.join(OUTPUT_DIR, "stocks.json")
 
 async def generate_file():
     """
-    Connects to the database using asyncpg with individual connection params, 
-    fetches all stock data, and saves it to a JSON file.
+    Connects to the database using psycopg, fetches all stock data, and saves it to a JSON file.
     """
-    print("Connecting to the database with asyncpg...")
+    print("Connecting to the database with psycopg...")
     conn = None
     try:
         # Use the full POSTGRES_URL for connection
-        conn = await asyncpg.connect(dsn=os.getenv("POSTGRES_URL"))
+        conn_str = os.getenv("POSTGRES_URL")
+        if not conn_str:
+            raise ValueError("POSTGRES_URL environment variable is not set.")
+            
+        conn = await psycopg.AsyncConnection.connect(conn_str, autocommit=True)
         print("Database connection successful.")
 
         print("Fetching stock data...")
-        stocks = await conn.fetch(
-            '''
-            SELECT 
-                code, 
-                name, 
-                market, 
-                price AS "currentPrice", 
-                COALESCE(change_rate, 0) AS change_rate, 
-                COALESCE(volume, 0) AS volume, 
-                COALESCE(market_cap, 0) AS market_cap
-            FROM stocks 
-            ORDER BY market_cap DESC NULLS LAST
-            '''
-        )
-        print(f"Fetched {len(stocks)} stock records.")
+        async with conn.cursor() as cur:
+            await cur.execute(
+                '''
+                SELECT 
+                    json_agg(
+                        json_build_object(
+                            'code', code,
+                            'name', name,
+                            'market', market,
+                            'currentPrice', price,
+                            'change_rate', COALESCE(change_rate, 0),
+                            'volume', COALESCE(volume, 0),
+                            'market_cap', COALESCE(market_cap, 0)
+                        )
+                    )
+                FROM (
+                    SELECT * FROM stocks ORDER BY market_cap DESC NULLS LAST
+                ) as sorted_stocks
+                '''
+            )
+            result = await cur.fetchone()
+            stocks_data = result[0] if result and result[0] is not None else []
+        
+        print(f"Fetched {len(stocks_data)} stock records.")
 
         # Ensure the output directory exists
         os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-        # Convert asyncpg.Record objects to a list of dictionaries
-        data_to_save = [dict(stock) for stock in stocks]
-
         print(f"Saving data to {OUTPUT_FILE}...")
         with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data_to_save, f, ensure_ascii=False, indent=2)
+            json.dump(stocks_data, f, ensure_ascii=False, indent=2)
         
         print("Successfully generated stocks.json file.")
 
@@ -61,3 +70,4 @@ async def generate_file():
 
 if __name__ == "__main__":
     asyncio.run(generate_file())
+
