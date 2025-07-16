@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-const API_URL = process.env.NEXT_PUBLIC_STOCK_API_URL;
+const API_URL = process.env.NEXT_PUBLIC_ADMIN_API_URL;
 
 export async function POST(request: NextRequest) {
   try {
