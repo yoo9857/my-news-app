@@ -1,49 +1,49 @@
-name: Generate Static Data
+name: Generate and Deploy Static Data
 
 on:
   push:
     branches:
-      - main  # Or your main branch name
-  workflow_dispatch: # Allows manual triggering
+      - main
+  workflow_dispatch:
 
 permissions:
-  contents: write # Give the workflow write permission to the repository
+  contents: write
 
 jobs:
-  generate-data:
+  generate-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           pip install "psycopg[binary,pool]" python-dotenv
 
       - name: Generate data file
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-        run: |
-          python KiwoomGateway/generate_stock_file.py
-      
+        run: python KiwoomGateway/generate_stock_file.py
+
       - name: Verify file creation
         run: |
-          echo "Listing files in the workspace:"
-          ls -R
+          echo "--- Verifying file existence and content ---"
+          ls -lR public
+          echo "--- stocks.json content (first 5 lines) ---"
+          head -n 5 public/data/stocks.json || echo "stocks.json not found or empty."
 
-      - name: Commit and push if changed
+      - name: Commit and push if data changed
         run: |
-          git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "actions-bot@github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add public/data/stocks.json
-          # Check if there are changes to commit
           if git diff --staged --quiet; then
-            echo "No changes to commit."
+            echo "No data changes to commit."
           else
             git commit -m "Automated: Update stock data"
             git push
