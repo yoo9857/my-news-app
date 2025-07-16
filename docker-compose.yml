@@ -148,6 +148,14 @@ services:
     networks:
       - my_news_network
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: my_news_app_cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token TUNNEL_TOKEN_PLACEHOLDER
+    networks:
+      - my_news_network
+
 volumes:
   postgres_data:
 

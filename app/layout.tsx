@@ -33,7 +33,7 @@ export default function RootLayout({
     if (typeof window !== 'undefined') {
       const logVisit = async () => {
         try {
-          await fetch('/api/log_visit', {
+          await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/log_visit`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
