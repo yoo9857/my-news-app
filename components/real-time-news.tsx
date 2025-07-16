@@ -140,7 +140,7 @@ export default function RealTimeNews() {
       // setIsLoading(true); 
       setFetchError(false);
       try {
-        const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/news?limit=30`;
+        const apiUrl = `${process.env.NEXT_PUBLIC_NEWS_API_URL}/api/news?limit=30`;
         const response = await fetch(apiUrl);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

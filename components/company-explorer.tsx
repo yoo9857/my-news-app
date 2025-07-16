@@ -71,7 +71,7 @@ export default function CompanyExplorer() {
       setIsLoading(true);
       setFetchError(false);
       try {
-        const response = await fetch('/api/all-companies?limit=1500');
+        const response = await fetch(`${process.env.NEXT_PUBLIC_STOCK_API_URL}/api/all-companies?limit=1500`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -93,9 +93,8 @@ export default function CompanyExplorer() {
 
     // WebSocket for real-time price updates
     if (!socketRef.current || socketRef.current.readyState === WebSocket.CLOSED) {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host; // This will be localhost:3000 in dev
-      const socket = new WebSocket(`${protocol}//${host}/ws/realtime-price`);
+      const wsUrl = process.env.NEXT_PUBLIC_ADMIN_API_URL?.replace(/^http/, 'ws');
+      const socket = new WebSocket(`${wsUrl}/ws/realtime-price`);
       socketRef.current = socket;
 
       socket.onopen = () => {
