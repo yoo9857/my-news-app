@@ -37,7 +37,7 @@ export default function TrafficPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://localhost:8003/api/traffic_stats', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/traffic_stats`, {
         headers: {
           'secret-key': secretKey,
         },

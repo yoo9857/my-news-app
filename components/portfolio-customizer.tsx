@@ -36,7 +36,7 @@ export default function PortfolioCustomizer() {
     const fetchCompanies = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://localhost:8001/api/all-companies');
+        const response = await fetch(`${process.env.NEXT_PUBLIC_STOCK_API_URL}/api/all-companies`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

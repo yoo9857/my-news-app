@@ -42,7 +42,7 @@ export default function PostDetailPage() {
     const fetchPostAndComments = async () => {
       try {
         // Fetch post
-        const postResponse = await fetch(`http://localhost:8003/api/posts/${postId}`);
+        const postResponse = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/posts/${postId}`);
         if (!postResponse.ok) {
           throw new Error('게시글을 불러오지 못했습니다.');
         }
@@ -50,7 +50,7 @@ export default function PostDetailPage() {
         setPost(postData);
 
         // Fetch comments
-        const commentsResponse = await fetch(`http://localhost:8003/api/posts/${postId}/comments/`);
+        const commentsResponse = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/posts/${postId}/comments/`);
         if (!commentsResponse.ok) {
           throw new Error('댓글을 불러오지 못했습니다.');
         }
@@ -83,7 +83,7 @@ export default function PostDetailPage() {
     }
 
     try {
-      const response = await fetch(`http://localhost:8003/api/posts/${postId}/comments/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/posts/${postId}/comments/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -118,7 +118,7 @@ export default function PostDetailPage() {
 
     if (window.confirm('정말로 이 게시글을 삭제하시겠습니까?')) {
       try {
-        const response = await fetch(`http://localhost:8003/api/posts/${postId}`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/posts/${postId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `${tokenType} ${token}`,

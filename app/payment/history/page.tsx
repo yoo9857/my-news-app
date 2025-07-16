@@ -44,7 +44,7 @@ export default function PaymentHistoryPage() {
       if (!headers) return;
 
       try {
-        const response = await fetch('http://localhost:8003/api/transactions/me', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/transactions/me`, {
           headers: headers,
         });
 

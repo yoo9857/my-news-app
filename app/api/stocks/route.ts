@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 // 백엔드 API 서버의 주소
-const API_URL = process.env.NEXT_PUBLIC_KIWOOM_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_STOCK_API_URL;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

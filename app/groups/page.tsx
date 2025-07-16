@@ -22,7 +22,7 @@ export default function GroupsPage() {
   useEffect(() => {
     const fetchGroups = async () => {
       try {
-        const response = await fetch('http://localhost:8003/api/groups/');
+        const response = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/groups/`);
         if (!response.ok) {
           throw new Error('Failed to fetch groups');
         }

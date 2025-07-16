@@ -30,7 +30,7 @@ export default function NewGroupPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:8003/api/groups/', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/groups/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

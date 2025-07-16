@@ -53,7 +53,7 @@ export default function ProfilePage() {
 
     try {
       // Fetch user info
-      const userResponse = await fetch('http://localhost:8003/api/users/me/', {
+      const userResponse = await fetch('`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/`users/me/', {
         headers: { Authorization: headers.Authorization },
       });
       if (!userResponse.ok) {
@@ -68,7 +68,7 @@ export default function ProfilePage() {
       setUserInfo(userData);
 
       // Fetch user profile
-      const profileResponse = await fetch('http://localhost:8003/api/profiles/me', {
+      const profileResponse = await fetch('`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/`profiles/me', {
         headers: { Authorization: headers.Authorization },
       });
       if (!profileResponse.ok) {
@@ -98,7 +98,7 @@ export default function ProfilePage() {
     if (!headers) return;
 
     try {
-      const response = await fetch('http://localhost:8003/api/profiles/me', {
+      const response = await fetch('`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/`profiles/me', {
         method: 'PUT',
         headers: headers,
         body: JSON.stringify({ bio, profile_picture_url: profilePictureUrl, location }),

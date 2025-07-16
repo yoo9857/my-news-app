@@ -15,7 +15,7 @@ export default function GoogleCallbackPage() {
     if (code) {
       const handleGoogleLogin = async () => {
         try {
-          const response = await fetch(`http://localhost:8003/api/auth/google/callback?code=${code}`);
+          const response = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/auth/google/callback?code=${code}`);
           if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.detail || 'Google 로그인 실패');

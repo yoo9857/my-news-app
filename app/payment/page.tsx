@@ -38,7 +38,7 @@ export default function PaymentPage() {
       // In a real application, you'd get the user_id from the authenticated user context
       // For this example, we'll assume user_id 1 for simplicity or fetch it from /api/users/me
       // Let's fetch current user to get their ID
-      const userResponse = await fetch('http://localhost:8003/api/users/me/', {
+      const userResponse = await fetch('`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/`users/me/', {
         headers: { Authorization: headers.Authorization },
       });
       if (!userResponse.ok) {
@@ -47,7 +47,7 @@ export default function PaymentPage() {
       const userData = await userResponse.json();
       const userId = userData.id; // UserInDB now has 'id' field
 
-      const response = await fetch('http://localhost:8003/api/transactions/request', {
+      const response = await fetch('`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/`transactions/request', {
         method: 'POST',
         headers: headers,
         body: JSON.stringify({ amount, user_id: userId }),

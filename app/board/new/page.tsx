@@ -30,7 +30,7 @@ export default function NewPostPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:8003/api/posts/', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/posts/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

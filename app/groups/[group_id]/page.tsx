@@ -69,7 +69,7 @@ export default function GroupDetailPage() {
     const fetchGroupDetails = async () => {
       try {
         // Fetch group details
-        const groupResponse = await fetch(`http://localhost:8003/api/groups/${groupId}`);
+        const groupResponse = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/groups/${groupId}`);
         if (!groupResponse.ok) {
           throw new Error('그룹 정보를 불러오지 못했습니다.');
         }
@@ -79,7 +79,7 @@ export default function GroupDetailPage() {
         // Fetch group members
         const headers = getTokenHeaders();
         if (headers) { // Only fetch members if authenticated
-          const membersResponse = await fetch(`http://localhost:8003/api/groups/${groupId}/members/`, {
+          const membersResponse = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/groups/${groupId}/members/`, {
             headers: { Authorization: headers.Authorization },
           });
           if (!membersResponse.ok) {
@@ -89,7 +89,7 @@ export default function GroupDetailPage() {
           setMembers(membersData);
 
           // Fetch chat messages
-          const chatResponse = await fetch(`http://localhost:8003/api/chat/${groupId}/messages`, {
+          const chatResponse = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/chat/${groupId}/messages`, {
             headers: { Authorization: headers.Authorization },
           });
           if (!chatResponse.ok) {
@@ -122,7 +122,8 @@ export default function GroupDetailPage() {
       }
 
       // WebSocket connection
-      ws.current = new WebSocket(`ws://localhost:8003/api/ws/chat/${groupId}?token=${token}`);
+      const wsUrl = process.env.NEXT_PUBLIC_ADMIN_API_URL?.replace(/^http/, 'ws');
+      ws.current = new WebSocket(`${wsUrl}/api/ws/chat/${groupId}?token=${token}`);
 
       ws.current.onopen = () => {
         console.log('WebSocket connected');
@@ -187,7 +188,7 @@ export default function GroupDetailPage() {
 
     if (window.confirm('정말로 이 그룹을 삭제하시겠습니까? (그룹 소유자만 가능)')) {
       try {
-        const response = await fetch(`http://localhost:8003/api/groups/${groupId}`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/groups/${groupId}`, {
           method: 'DELETE',
           headers: { Authorization: headers.Authorization },
         });

@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-const API_URL = process.env.NEXT_PUBLIC_KIWOOM_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_STOCK_API_URL;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
