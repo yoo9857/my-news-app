@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
-    const backendUrl = `http://localhost:8002/api/register`;
+    const backendUrl = `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/register`;
     const response = await fetch(backendUrl, {
       method: 'POST',
       headers: {

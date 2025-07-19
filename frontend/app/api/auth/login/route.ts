@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     formData.append('username', email); // FastAPI expects 'username' for OAuth2PasswordRequestForm
     formData.append('password', password);
 
-    const backendUrl = `http://localhost:8002/api/token`;
+    const backendUrl = `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/token`;
     const response = await fetch(backendUrl, {
       method: 'POST',
       headers: {
