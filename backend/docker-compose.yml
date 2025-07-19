@@ -1,0 +1,204 @@
+# docker-compose.yml (수정된 버전)
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: my_news_app_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mynewsdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db-init/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -q || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - my_news_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: my_news_app_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - my_news_network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: myuser
+      RABBITMQ_DEFAULT_PASS: mypassword
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - my_news_network
+
+  # --- 워커 서비스들 ---
+  # (워커들의 volumes 설정은 각 스크립트가 services 폴더 외 다른 코드를 참조하지 않는다는 가정 하에 유지합니다.)
+  db-saver:
+    build:
+      context: ..
+      dockerfile: ./backend/dockerfiles/Dockerfile.db-saver
+    container_name: my_news_app_db_saver
+    environment:
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+      - POSTGRES_DB=mynewsdb
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - RABBITMQ_USER=myuser
+      - RABBITMQ_PASSWORD=mypassword
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    command: python db_saver.py
+    volumes:
+      - ./services:/app
+    working_dir: /app
+    networks:
+      - my_news_network
+
+  sentiment-worker:
+    build:
+      context: ..
+      dockerfile: ./backend/dockerfiles/Dockerfile.sentiment-worker
+    container_name: my_news_app_sentiment_worker
+    environment:
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+      - POSTGRES_DB=mynewsdb
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - RABBITMQ_USER=myuser
+      - RABBITMQ_PASSWORD=mypassword
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    command: python sentiment_worker.py
+    volumes:
+      - ./services:/app
+    working_dir: /app
+    networks:
+      - my_news_network
+  
+  # --- API 서버들 ---
+  # [수정됨] stock-service의 복잡한 command를 제거하고 volumes 경로를 명확히 수정
+  # stock-service:
+  #   build:
+  #     context: ..
+  #     dockerfile: ./backend/dockerfiles/Dockerfile.stock
+  #   container_name: my_news_app_stock_service
+  #   environment:
+  #     - POSTGRES_USER=myuser
+  #     - POSTGRES_PASSWORD=mypassword
+  #     - POSTGRES_DB=mynewsdb
+  #     - POSTGRES_HOST=postgres
+  #     - POSTGRES_PORT=5432
+  #     - REDIS_HOST=redis
+  #     - REDIS_PORT=6379
+  #     - PYTHONPATH=/app  # 파이썬이 모듈을 찾을 기준 경로 설정
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_started
+  #   ports:
+  #     - "8001:8000" # 내부 포트는 8000번을 사용하도록 통일
+  #   command: uvicorn fastapi_server:app --host 0.0.0.0 --port 8000 --reload
+  #   volumes:
+  #     - ./api_gateway:/app/api_gateway # api_gateway 코드를 컨테이너의 /app/api_gateway로 마운트
+  #     - ./services:/app/services     # services 코드를 컨테이너의 /app/services로 마운트
+  #   working_dir: /app
+  #   networks:
+  #     - my_news_network
+
+  # [추가됨] 누락되었던 admin-service를 올바른 경로 설정으로 복원
+  admin-service:
+    build:
+      context: ..
+      dockerfile: ./backend/dockerfiles/Dockerfile.admin
+    container_name: my_news_app_admin_service
+    environment:
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+      - POSTGRES_DB=mynewsdb
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8003:8000"
+    command: uvicorn services.admin_service:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./services:/app/services
+      - ./KiwoomGateway:/app/KiwoomGateway
+    working_dir: /app
+    networks:
+      - my_news_network
+
+  # [추가됨] 누락되었던 핵심 fastapi-server를 올바른 경로 설정으로 복원
+  fastapi-server:
+    build:
+      context: ..
+      dockerfile: ./backend/dockerfiles/Dockerfile.fastapi
+    container_name: my_news_app_fastapi_server
+    environment:
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+      - POSTGRES_DB=mynewsdb
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_USER=myuser
+      - RABBITMQ_PASSWORD=mypassword
+      - PYTHONPATH=/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src # backend/src 폴더를 컨테이너의 /app/src로 마운트
+    working_dir: /app
+    command: uvicorn src.api_gateway.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - my_news_network
+
+  # [수정됨] 보안을 위해 토큰을 환경 변수로 관리
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: my_news_app_cloudflared
+    restart: unless-stopped
+    env_file:
+      - ../.env # 프로젝트 루트의 .env 파일을 읽어오도록 설정
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TOKEN}
+    networks:
+      - my_news_network
+
+volumes:
+  postgres_data:
+
+networks:
+  my_news_network:

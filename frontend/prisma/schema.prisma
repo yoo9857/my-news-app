@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_PRISMA_URL")
+}
+
+model User {
+  id                                  Int                         @id @default(autoincrement())
+  username                            String                      @unique @db.VarChar(50)
+  email                               String                      @unique @db.VarChar(100)
+  hashed_password                     String?                     @map("hashed_password") @db.VarChar(255)
+  google_id                           String?                     @unique @map("google_id") @db.VarChar(255)
+  created_at                          DateTime?                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at                          DateTime?                   @default(now()) @db.Timestamptz(6)
+  blocks_blocks_blocked_idTousers     blocks[]                    @relation("blocks_blocked_idTousers")
+  blocks_blocks_blocker_idTousers     blocks[]                    @relation("blocks_blocker_idTousers")
+  comments                            Comment[]
+  follows_follows_follower_idTousers  follows[]                   @relation("follows_follower_idTousers")
+  follows_follows_following_idTousers follows[]                   @relation("follows_following_idTousers")
+  posts                               Post[]
+  user_notification_settings          user_notification_settings?
+  user_privacy_settings               user_privacy_settings?
+  profile                             UserProfile?
+
+  @@map("users")
+}
+
+model Post {
+  id         Int       @id @default(autoincrement())
+  title      String    @db.VarChar(255)
+  content    String
+  author_id  Int       @map("author_id")
+  created_at DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  comments   Comment[]
+  author     User      @relation(fields: [author_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("posts")
+}
+
+model Comment {
+  id         Int       @id @default(autoincrement())
+  post_id    Int       @map("post_id")
+  author_id  Int       @map("author_id")
+  content    String
+  created_at DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  author     User      @relation(fields: [author_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  post       Post      @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("comments")
+}
+
+model UserProfile {
+  user_id     Int       @id @map("user_id")
+  nickname    String?   @unique @db.VarChar(50)
+  bio         String?
+  avatar_url  String?   @db.VarChar(255)
+  website_url String?   @db.VarChar(255)
+  location    String?   @db.VarChar(100)
+  updated_at  DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("user_profiles")
+}
+
+model blocks {
+  blocker_id                     Int
+  blocked_id                     Int
+  created_at                     DateTime? @default(now()) @db.Timestamptz(6)
+  users_blocks_blocked_idTousers User      @relation("blocks_blocked_idTousers", fields: [blocked_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_blocks_blocker_idTousers User      @relation("blocks_blocker_idTousers", fields: [blocker_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([blocker_id, blocked_id])
+}
+
+model follows {
+  follower_id                       Int
+  following_id                      Int
+  created_at                        DateTime? @default(now()) @db.Timestamptz(6)
+  users_follows_follower_idTousers  User      @relation("follows_follower_idTousers", fields: [follower_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_follows_following_idTousers User      @relation("follows_following_idTousers", fields: [following_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([follower_id, following_id])
+}
+
+model news_articles {
+  id              Int       @id @default(autoincrement())
+  title           String
+  content         String?
+  url             String    @unique @db.VarChar(512)
+  source          String?
+  published_at    DateTime? @db.Timestamptz(6)
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  sentiment_score Float?
+  sentiment_label String?   @db.VarChar(10)
+}
+
+model stocks {
+  id           Int       @id @default(autoincrement())
+  code         String    @unique @db.VarChar(20)
+  name         String    @db.VarChar(100)
+  market       String?   @db.VarChar(50)
+  theme        String?   @db.VarChar(255)
+  price        Int?
+  change_value Int?
+  change_rate  Float?
+  volume       BigInt?
+  market_cap   BigInt?
+  pbr          Float?
+  per          Float?
+  roe          Float?
+  last_updated DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model user_notification_settings {
+  user_id         Int     @id
+  on_new_comment  Boolean @default(true)
+  on_new_follower Boolean @default(true)
+  on_post_like    Boolean @default(true)
+  users           User    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model user_privacy_settings {
+  user_id            Int     @id
+  profile_visibility String  @default("public") @db.VarChar(20)
+  show_email         String  @default("private") @db.VarChar(20)
+  show_activity_feed Boolean @default(true)
+  users              User    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model user_visits {
+  id         Int       @id @default(autoincrement())
+  ip_address String    @db.VarChar(45)
+  visit_time DateTime? @default(now()) @db.Timestamptz(6)
+  user_agent String?
+  path       String?
+}

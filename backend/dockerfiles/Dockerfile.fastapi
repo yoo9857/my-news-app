@@ -1,0 +1,16 @@
+FROM python:3.10-slim
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy requirements file and install dependencies
+# Context is now '..', so path is backend/services/requirements-fastapi.txt
+COPY backend/services/requirements-fastapi.txt ./backend/services/requirements-fastapi.txt
+RUN pip install --no-cache-dir -r ./backend/services/requirements-fastapi.txt
+
+# Copy the entire backend/src directory into /app/src
+# Context is '..', so path is backend/src
+COPY backend/src /app/src
+
+# CMD is typically overridden by docker-compose, but a default is good practice
+CMD ["python", "-m", "uvicorn", "src.api_gateway.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

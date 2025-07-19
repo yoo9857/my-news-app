@@ -1,0 +1,16 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+ENV POSTGRES_USER=myuser
+ENV POSTGRES_PASSWORD=mypassword
+ENV POSTGRES_DB=mynewsdb
+ENV POSTGRES_HOST=postgres
+ENV POSTGRES_PORT=5432
+
+COPY ./backend/services/requirements-stock.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY ./backend/services/stock_service.py /app/
+
+CMD ["uvicorn", "stock_service:app", "--host", "0.0.0.0", "--port", "8001"]

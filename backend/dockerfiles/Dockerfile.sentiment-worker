@@ -1,0 +1,12 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install PyTorch and Transformers
+# Using CPU-only version of PyTorch to keep the image size smaller
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir transformers aio_pika
+
+COPY ./backend/services/sentiment_worker.py /app/
+
+CMD ["python", "sentiment_worker.py"]

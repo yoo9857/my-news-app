@@ -1,0 +1,10 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install required async libraries
+RUN pip install --no-cache-dir aio_pika asyncpg python-dateutil
+
+COPY ./backend/services/db_saver.py /app/
+
+CMD ["python", "db_saver.py"]

@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+asyncpg
+redis
+aio-pika
+python-jose[cryptography]
+passlib[bcrypt]
+httpx
+python-multipart
+google-api-python-client
+google-auth-oauthlib
