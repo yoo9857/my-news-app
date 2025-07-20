@@ -218,7 +218,7 @@ services:
     restart: unless-stopped
     environment:
       - CLOUDFLARE_TOKEN=${CLOUDFLARE_TOKEN}
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TOKEN}
+    command: sh -c "cloudflared tunnel run --no-autoupdate --token $CLOUDFLARE_TOKEN --url http://auth-service:8000"
     networks:
       - my_news_network
 

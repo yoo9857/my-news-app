@@ -141,6 +141,11 @@ export default function KoreanStockPlatform() {
                 <TabsTrigger value="tools"><Calculator className="mr-2 h-4 w-4" />투자 분석 도구</TabsTrigger>
                 <TabsTrigger value="dailyPlan"><CalendarDays className="mr-2 h-4 w-4" />일일 계획</TabsTrigger>
                 <TabsTrigger value="community"><CalendarDays className="mr-2 h-4 w-4" />커뮤니티</TabsTrigger>
+                <TabsTrigger value="psychology-research" asChild>
+                  <Link href="https://psychology-research.onedaytrading.net" target="_blank" rel="noopener noreferrer">
+                    <Brain className="mr-2 h-4 w-4" />심리연구소
+                  </Link>
+                </TabsTrigger>
               </TabsList>
             </div>
           )}
