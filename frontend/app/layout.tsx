@@ -6,7 +6,7 @@ import { Noto_Sans_KR } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from "@/components/ui/toaster";
 import Footer from '@/components/footer';
-import { SessionProvider } from 'next-auth/react'; // Import SessionProvider
+import ClientSessionProvider from '@/components/client-session-provider'; // Import ClientSessionProvider
 
 const notoSansKr = Noto_Sans_KR({
   subsets: ['latin'],
@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <body className={`${notoSansKr.className} antialiased bg-[#0F172A] text-gray-100`}>
-        <SessionProvider> {/* Wrap with SessionProvider */}
+        <ClientSessionProvider> {/* Wrap with ClientSessionProvider */}
             <ThemeProvider
               attribute="class"
               defaultTheme="dark"
@@ -41,7 +41,7 @@ export default function RootLayout({
               </div>
               <Toaster />
             </ThemeProvider>
-        </SessionProvider>
+        </ClientSessionProvider>
       </body>
     </html>
   );

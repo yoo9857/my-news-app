@@ -26,11 +26,6 @@
       "static/chunks/main-app.js",
       "static/chunks/app/register/page.js"
     ],
-    "/profile/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/profile/page.js"
-    ],
     "/community/new/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -45,6 +40,21 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/settings/layout.js"
+    ],
+    "/settings/notifications/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/settings/notifications/page.js"
+    ],
+    "/settings/privacy/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/settings/privacy/page.js"
+    ],
+    "/settings/account/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/settings/account/page.js"
     ],
     "/_not-found/page": [
       "static/chunks/webpack.js",

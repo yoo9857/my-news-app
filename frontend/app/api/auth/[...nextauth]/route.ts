@@ -51,9 +51,11 @@ const handler = NextAuth({
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken
-      session.user.email = token.email // Ensure email is in session.user
-      session.user.username = token.user?.email || token.email // Use email as username if not provided
-      session.user.avatar_url = token.user?.avatar_url // Add avatar_url to session.user
+      if (session.user) {
+        session.user.email = token.email
+        session.user.username = token.user?.email || token.email
+        session.user.avatar_url = token.user?.avatar_url
+      }
       return session
     }
   },

@@ -3677,6 +3677,10 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
 .data-\[state\=unchecked\]\:bg-input[data-state="unchecked"] {
   background-color: hsl(var(--input));
 }
+.data-\[state\=active\]\:bg-indigo-600[data-state="active"] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(79 70 229 / var(--tw-bg-opacity, 1));
+}
 .data-\[active\=true\]\:font-medium[data-active="true"] {
   font-weight: 500;
 }
@@ -3704,6 +3708,10 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
 }
 .data-\[state\=open\]\:text-muted-foreground[data-state="open"] {
   color: hsl(var(--muted-foreground));
+}
+.data-\[state\=active\]\:text-white[data-state="active"] {
+  --tw-text-opacity: 1;
+  color: rgb(255 255 255 / var(--tw-text-opacity, 1));
 }
 .data-\[disabled\=true\]\:opacity-50[data-disabled="true"] {
   opacity: 0.5;

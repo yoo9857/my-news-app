@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useSession } from 'next-auth/react'; // Changed from useAuth
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { motion } from 'framer-motion';
 
 export default function NotificationSettingsPage() {
-  const { user, isLoading } = useAuth();
+  const { data: session, status } = useSession(); // Changed from useAuth
   const { toast } = useToast();
 
   const [onNewComment, setOnNewComment] = useState(true);
@@ -23,17 +23,17 @@ export default function NotificationSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    if (status === "authenticated" && session?.accessToken) {
       fetchNotificationSettings();
     }
-  }, [user]);
+  }, [session, status]);
 
   const fetchNotificationSettings = async () => {
-    if (!user) return;
+    if (!session?.accessToken) return; // Ensure token exists
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/users/me/notifications`, {
+      const response = await fetch(`http://localhost:8002/users/me/notifications`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Authorization': `Bearer ${session.accessToken}`,
         },
       });
 
@@ -68,12 +68,18 @@ export default function NotificationSettingsPage() {
     e.preventDefault();
     setIsSaving(true);
 
+    if (!session?.accessToken) {
+      setError("인증 토큰이 없습니다.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/users/me/notifications`, {
+      const response = await fetch(`http://localhost:8002/users/me/notifications`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Authorization': `Bearer ${session.accessToken}`,
         },
         body: JSON.stringify({
           on_new_comment: onNewComment,
@@ -111,10 +117,18 @@ export default function NotificationSettingsPage() {
     }
   };
 
-  if (isLoading || !user) {
+  if (status === "loading") {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
         <p>Loading notification settings...</p>
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
+        <p>Please log in to view notification settings.</p>
       </div>
     );
   }

@@ -15,8 +15,8 @@ interface SettingsNavItemProps {
 }
 
 const SettingsNavItem: React.FC<SettingsNavItemProps> = ({ href, icon, label, isActive }) => (
-  <Link href={href} passHref>
-    <motion.a
+  <Link href={href} passHref legacyBehavior>
+    <motion.div
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       className={cn(
@@ -28,7 +28,7 @@ const SettingsNavItem: React.FC<SettingsNavItemProps> = ({ href, icon, label, is
     >
       {icon}
       {label}
-    </motion.a>
+    </motion.div>
   </Link>
 );
 
