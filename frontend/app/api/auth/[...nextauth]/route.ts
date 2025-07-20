@@ -1,6 +1,7 @@
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
+import { Account, Profile } from "next-auth"
 
 const handler = NextAuth({
   providers: [
@@ -41,22 +42,58 @@ const handler = NextAuth({
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.accessToken = user.access_token
-        token.email = user.email // Store email in token
-        token.user = user // Store the entire user object in token
+    async jwt({ token, user, account, trigger, session }) {
+      // Initial sign in
+      if (account && user) {
+        let backendUser;
+        if (account.provider === "google") {
+          const res = await fetch("http://localhost:8002/auth/google", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id_token_str: account.id_token }),
+          });
+          if (res.ok) {
+            backendUser = await res.json();
+          }
+        } else if ((user as any).access_token) {
+          backendUser = user;
+        }
+
+        if (backendUser && (backendUser as any).access_token) {
+          token.accessToken = (backendUser as any).access_token;
+          token.email = (backendUser as any).email;
+          token.name = (backendUser as any).nickname || (backendUser as any).name;
+          token.picture = (backendUser as any).avatar_url || (backendUser as any).picture;
+          token.nickname = (backendUser as any).nickname;
+          token.avatar_url = (backendUser as any).avatar_url;
+          token.user = backendUser;
+        }
       }
-      return token
+
+      // This part runs when the session is updated via the update() function
+      if (trigger === "update" && session?.user) {
+        if (session.user.nickname !== undefined) token.nickname = session.user.nickname;
+        if (session.user.avatar_url !== undefined) token.avatar_url = session.user.avatar_url;
+        if (session.user.name !== undefined) token.name = session.user.name;
+        if (session.user.email !== undefined) token.email = session.user.email;
+        if (session.user.image !== undefined) token.picture = session.user.image;
+        token.user = { ...(token.user as object), ...session.user };
+      }
+
+      return token;
     },
     async session({ session, token }) {
-      session.accessToken = token.accessToken
-      if (session.user) {
-        session.user.email = token.email
-        session.user.username = token.user?.email || token.email
-        session.user.avatar_url = token.user?.avatar_url
+      session.accessToken = token.accessToken;
+      
+      if (session.user && token) {
+        session.user.name = token.name;
+        session.user.email = token.email;
+        session.user.image = token.picture;
+        session.user.nickname = token.nickname;
+        session.user.avatar_url = token.avatar_url;
       }
-      return session
+
+      return session;
     }
   },
   pages: {

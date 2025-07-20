@@ -53,3 +53,10 @@ class User(UserBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+class TokenWithUser(Token, User):
+    # This class combines Token fields with User fields
+    pass
+
+class GoogleAuthRequest(BaseModel):
+    id_token_str: str

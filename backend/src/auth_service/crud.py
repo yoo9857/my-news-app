@@ -9,7 +9,12 @@ def get_user_by_email(db: Session, email: str):
 
 def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = auth.get_password_hash(user.password)
-    db_user = models.User(email=user.email, hashed_password=hashed_password)
+    db_user = models.User(
+        email=user.email, 
+        hashed_password=hashed_password,
+        nickname=user.nickname,
+        avatar_url=user.avatar_url
+    )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -18,12 +23,18 @@ def create_user(db: Session, user: schemas.UserCreate):
 def update_user_profile(db: Session, user_id: int, user_update: schemas.UserUpdate):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if db_user:
+        print(f"DEBUG: update_user_profile - User found: {db_user.email}")
+        print(f"DEBUG: update_user_profile - Incoming avatar_url: {user_update.avatar_url}")
+        print(f"DEBUG: update_user_profile - Current db_user.avatar_url (before update): {db_user.avatar_url}")
+
         if user_update.nickname is not None:
             db_user.nickname = user_update.nickname
         if user_update.avatar_url is not None:
             db_user.avatar_url = user_update.avatar_url
+        
         db.commit()
         db.refresh(db_user)
+        print(f"DEBUG: update_user_profile - db_user.avatar_url (after update and refresh): {db_user.avatar_url}")
     return db_user
 
 def update_user_password(db: Session, user_id: int, new_password: str):

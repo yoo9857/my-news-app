@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   trailingSlash: false,
+  images: {
+    domains: ['localhost'],
+  },
   async headers() {
     return [
       {

@@ -1,33 +1,30 @@
-import { DefaultSession, DefaultUser } from "next-auth";
-import { JWT as DefaultJWT } from "next-auth/jwt";
+import "next-auth";
 
 declare module "next-auth" {
   interface Session {
-    accessToken?: string;
     user: {
-      id?: string;
-      email?: string | null;
-      username?: string | null;
-      avatar_url?: string | null;
-    } & DefaultSession["user"];
+      id?: string | undefined;
+      email?: string | null | undefined;
+      username?: string | null | undefined;
+      nickname?: string | null | undefined; // Add nickname
+      avatar_url?: string | null | undefined; // Add avatar_url
+    } & User;
+    accessToken?: string; // Add accessToken
   }
 
-  interface User extends DefaultUser {
-    access_token?: string;
-    email?: string | null;
-    username?: string | null;
-    avatar_url?: string | null;
+  interface User {
+    id?: string | undefined;
+    email?: string | null | undefined;
+    username?: string | null | undefined;
+    nickname?: string | null | undefined; // Add nickname
+    avatar_url?: string | null | undefined; // Add avatar_url
   }
 }
 
 declare module "next-auth/jwt" {
-  interface JWT extends DefaultJWT {
-    accessToken?: string;
-    email?: string | null;
-    user?: {
-      email?: string | null;
-      username?: string | null;
-      avatar_url?: string | null;
-    };
+  interface JWT {
+    accessToken?: string; // Add accessToken to JWT
+    nickname?: string | null | undefined; // Add nickname to JWT
+    avatar_url?: string | null | undefined; // Add avatar_url to JWT
   }
 }

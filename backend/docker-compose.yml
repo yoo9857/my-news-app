@@ -197,7 +197,8 @@ services:
       - POSTGRES_DB=mynewsdb
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
-      - SECRET_KEY=${AUTH_SECRET_KEY} # 환경 변수에서 SECRET_KEY를 가져옴
+      - SECRET_KEY=NjrEiKpvsDyV2MneodcQ4W_seYO-QPEPpfPVq0yg3tM
+      - GOOGLE_CLIENT_ID=1015197407816-84cu1qm3j1l5p1g41l49ca22kambki31.apps.googleusercontent.com
     depends_on:
       postgres:
         condition: service_healthy
@@ -215,8 +216,8 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: my_news_app_cloudflared
     restart: unless-stopped
-    env_file:
-      - ../.env # 프로젝트 루트의 .env 파일을 읽어오도록 설정
+    environment:
+      - CLOUDFLARE_TOKEN=${CLOUDFLARE_TOKEN}
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TOKEN}
     networks:
       - my_news_network

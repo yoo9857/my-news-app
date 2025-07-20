@@ -1,10 +1,10 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
   "/page": "app/page.js",
-  "/community/new/page": "app/community/new/page.js",
+  "/login/page": "app/login/page.js",
+  "/register/page": "app/register/page.js",
   "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/settings/profile/page": "app/settings/profile/page.js",
-  "/settings/notifications/page": "app/settings/notifications/page.js",
-  "/settings/privacy/page": "app/settings/privacy/page.js"
+  "/settings/notifications/page": "app/settings/notifications/page.js"
 }

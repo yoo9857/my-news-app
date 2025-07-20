@@ -6,6 +6,7 @@ COPY backend/src/auth_service/requirements.txt /app/src/auth_service/requirement
 
 RUN pip install --no-cache-dir -r /app/src/auth_service/requirements.txt
 
+ENV GOOGLE_CLIENT_ID=1015197407816-84cu1qm3j1l5p1g41l49ca22kambki31.apps.googleusercontent.com
 COPY backend /app
 
 CMD ["uvicorn", "src.auth_service.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -19,35 +19,27 @@ ALTER ROLE "myuser" SET search_path TO public;
 -- Create the 'users' table
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
+    username VARCHAR(50) UNIQUE,
     email VARCHAR(100) UNIQUE NOT NULL,
     hashed_password VARCHAR(255),
     google_id VARCHAR(255) UNIQUE,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
--- User Profiles Table (Detailed)
-CREATE TABLE IF NOT EXISTS user_profiles (
-    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    nickname VARCHAR(50) UNIQUE NOT NULL DEFAULT '', -- Added NOT NULL and DEFAULT
-    bio TEXT,
-    profile_image_url VARCHAR(255),
-    website_url VARCHAR(255),
-    location VARCHAR(100),
-    theme_color VARCHAR(7) DEFAULT '#007bff', -- New: Default blue color
-    background_image_url VARCHAR(255), -- New: Background image URL
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
--- Privacy Settings Table
-CREATE TABLE IF NOT EXISTS user_privacy_settings (
-    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    nickname VARCHAR(50),
+    avatar_url VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
     profile_visibility VARCHAR(20) DEFAULT 'public' NOT NULL, -- public, followers_only, private
     show_email VARCHAR(20) DEFAULT 'private' NOT NULL, -- public, followers_only, private
     show_activity_feed BOOLEAN DEFAULT TRUE NOT NULL,
-    allow_direct_messages BOOLEAN DEFAULT TRUE NOT NULL, -- New: Allow direct messages
-    show_online_status BOOLEAN DEFAULT TRUE NOT NULL -- New: Show online status
+    allow_direct_messages BOOLEAN DEFAULT TRUE NOT NULL,
+    show_online_status BOOLEAN DEFAULT TRUE NOT NULL,
+    on_new_comment BOOLEAN DEFAULT TRUE NOT NULL,
+    on_new_follower BOOLEAN DEFAULT TRUE NOT NULL,
+    on_post_like BOOLEAN DEFAULT TRUE NOT NULL,
+    on_mention BOOLEAN DEFAULT TRUE NOT NULL,
+    on_direct_message BOOLEAN DEFAULT TRUE NOT NULL,
+    email_notifications BOOLEAN DEFAULT TRUE NOT NULL,
+    push_notifications BOOLEAN DEFAULT TRUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Follows Table
@@ -64,18 +56,6 @@ CREATE TABLE IF NOT EXISTS blocks (
     blocked_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (blocker_id, blocked_id)
-);
-
--- Notification Settings Table
-CREATE TABLE IF NOT EXISTS user_notification_settings (
-    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    on_new_comment BOOLEAN DEFAULT TRUE NOT NULL,
-    on_new_follower BOOLEAN DEFAULT TRUE NOT NULL,
-    on_post_like BOOLEAN DEFAULT TRUE NOT NULL,
-    on_mention BOOLEAN DEFAULT TRUE NOT NULL, -- New: On mention notification
-    on_direct_message BOOLEAN DEFAULT TRUE NOT NULL, -- New: On direct message notification
-    email_notifications BOOLEAN DEFAULT TRUE NOT NULL, -- New: Email notifications
-    push_notifications BOOLEAN DEFAULT TRUE NOT NULL -- New: Push notifications
 );
 
 -- Stocks Table
@@ -142,9 +122,6 @@ CREATE TABLE IF NOT EXISTS user_visits (
 -- Test Data for users (if not already present)
 INSERT INTO users (username, email, hashed_password) VALUES
 ('testuser1', 'test1@example.com', 'hashed_password_1') ON CONFLICT (username) DO NOTHING;
-
-INSERT INTO user_profiles (user_id, nickname) VALUES
-((SELECT id FROM users WHERE username = 'testuser1'), 'TestUserNickname1') ON CONFLICT (user_id) DO NOTHING;
 
 -- Test Data for posts
 INSERT INTO posts (title, content, author_id) VALUES
