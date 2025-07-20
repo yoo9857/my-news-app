@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "server.js",
   "dependencies": {
+    "@radix-ui/react-accordion": "^1.2.11",
     "@tanstack/react-virtual": "^3.13.12",
     "@types/next-auth": "^3.13.0",
     "@vercel/postgres": "^0.10.0",
