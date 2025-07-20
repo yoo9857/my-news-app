@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       // Add other non-sensitive data if needed, e.g., roles
     };
 
-    const access_token = jwt.sign(payload, JWT_SECRET, {
+    const access_token = jwt.sign(payload, JWT_SECRET!, {
       expiresIn: '1h', // Token expires in 1 hour
     });
 
