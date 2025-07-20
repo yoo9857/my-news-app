@@ -76,7 +76,7 @@ const getSentimentStyle = (label: string) => {
 };
 
 const SentimentBadge = ({ score, label }: { score: number, label: string }) => {
-  const sentimentMap: { [key: string]: { icon: JSX.Element } } = {
+  const sentimentMap: { [key: string]: { icon: React.ReactNode } } = {
     '강한 긍정': { icon: <><TrendingUp size={12} className="-mr-1" /><TrendingUp size={12} /></> },
     '긍정적': { icon: <TrendingUp size={12} /> },
     '약한 긍정': { icon: <TrendingUp size={12} /> },
