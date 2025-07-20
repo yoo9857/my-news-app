@@ -266,7 +266,7 @@ export default function CompanyExplorer() {
           onChange={e => setSearchTerm(e.target.value)}
           className="flex-grow bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-indigo-500"
         />
-        <Tabs defaultValue="ALL" onValueChange={(value) => setMarketFilter(value as any)} className="w-full sm:w-auto">
+        <Tabs defaultValue="ALL" onValueChange={(value: string) => setMarketFilter(value as any)} className="w-full sm:w-auto">
           <TabsList className="grid w-full grid-cols-3 bg-slate-800 border-slate-600">
             <TabsTrigger value="ALL">전체</TabsTrigger>
             <TabsTrigger value="KOSPI">코스피</TabsTrigger>
