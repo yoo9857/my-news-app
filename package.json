@@ -18,6 +18,7 @@
     "autoprefixer": "^10.4.21",
     "balanced-match": "^1.0.2",
     "base64id": "^2.0.0",
+    "bcrypt": "^6.0.0",
     "binary-extensions": "^2.3.0",
     "brace-expansion": "^2.0.2",
     "braces": "^3.0.3",
