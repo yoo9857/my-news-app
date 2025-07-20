@@ -107,7 +107,7 @@ const GeminiInsightDisplay: React.FC<GeminiInsightDisplayProps> = () => {
 // Helper function to render insight with basic markdown-like formatting
 const renderInsight = (text: string) => {
   const lines = text.split('\n');
-  const elements: JSX.Element[] = [];
+  const elements: React.ReactNode[] = [];
   let currentListItems: JSX.Element[] = [];
 
   const processLine = (line: string, key: number) => {
