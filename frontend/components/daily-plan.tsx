@@ -94,7 +94,7 @@ const DailyDetailView = ({ selectedDate, data, onUpdate }: { selectedDate: Date;
               <CardContent className="space-y-3">
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Input placeholder="새로운 할 일" value={newTask} onChange={e => setNewTask(e.target.value)} onKeyPress={e => e.key === 'Enter' && addTask()} className="bg-slate-800 border-slate-600 flex-1"/>
-                  <Select value={newPriority} onValueChange={v => setNewPriority(v as Priority)}><SelectTrigger className="w-full sm:w-[120px] bg-slate-800 border-slate-600"><SelectValue placeholder="우선순위"/></SelectTrigger><SelectContent className="bg-slate-800 text-white">{Object.entries(priorityMap).map(([k,v])=><SelectItem key={k} value={k}>{v.label}</SelectItem>)}</SelectContent></Select>
+                  <Select value={newPriority} onValueChange={(v: string) => setNewPriority(v as Priority)}><SelectTrigger className="w-full sm:w-[120px] bg-slate-800 border-slate-600"><SelectValue placeholder="우선순위"/></SelectTrigger><SelectContent className="bg-slate-800 text-white">{Object.entries(priorityMap).map(([k,v])=><SelectItem key={k} value={k}>{v.label}</SelectItem>)}</SelectContent></Select>
                   <Button onClick={addTask} className="bg-indigo-600 hover:bg-indigo-700 flex-shrink-0"><PlusCircle size={16} className="mr-2"/>추가</Button>
                 </div>
                 <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
