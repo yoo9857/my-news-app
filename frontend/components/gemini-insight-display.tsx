@@ -108,7 +108,7 @@ const GeminiInsightDisplay: React.FC<GeminiInsightDisplayProps> = () => {
 const renderInsight = (text: string) => {
   const lines = text.split('\n');
   const elements: React.ReactNode[] = [];
-  let currentListItems: JSX.Element[] = [];
+  let currentListItems: React.ReactNode[] = [];
 
   const processLine = (line: string, key: number) => {
     // Process bold text
