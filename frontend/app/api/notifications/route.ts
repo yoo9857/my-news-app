@@ -4,9 +4,13 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(req: NextRequest) {
   try {
-    const userId = req.nextUrl.searchParams.get('userId');
-    if (!userId) {
+    const userIdParam = req.nextUrl.searchParams.get('userId');
+    if (!userIdParam) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+    const userId = parseInt(userIdParam, 10);
+    if (isNaN(userId)) {
+      return NextResponse.json({ error: 'Invalid User ID' }, { status: 400 });
     }
     const notifications = await prisma.notification.findMany({
       where: { userId },
@@ -27,7 +31,7 @@ export async function PUT(req: NextRequest) {
     }
     const updatedNotification = await prisma.notification.update({
       where: { id },
-      data: { isRead },
+      data: { read: isRead },
     });
     return NextResponse.json(updatedNotification);
   } catch (error) {

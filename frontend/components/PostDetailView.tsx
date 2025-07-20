@@ -24,7 +24,12 @@ interface Comment {
   createdAt: string;
 }
 
-export default function PostDetailView({ postId, onBack }) {
+interface PostDetailViewProps {
+  postId: string;
+  onBack: () => void;
+}
+
+export default function PostDetailView({ postId, onBack }: PostDetailViewProps) {
   const { user } = useAuth();
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);

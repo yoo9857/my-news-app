@@ -51,7 +51,7 @@ export default function CommunityPage() {
           )}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {posts.map((post) => (
-              <AnimatedPostCard key={post.id} post={post} />
+              <AnimatedPostCard key={post.id} post={post} onClick={() => console.log(`Post clicked: ${post.title}`)} />
             ))}
           </div>
           {hasMore && (

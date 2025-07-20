@@ -1,8 +1,10 @@
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Copyright } from 'lucide-react';
 
 const Footer = () => {
+  const router = useRouter();
   const currentYear = new Date().getFullYear();
   const footerLinks = [
     { name: '개인 정보 보호', href: '/legal/privacy' },
@@ -20,9 +22,9 @@ const Footer = () => {
         {/* Policy Links */}
         <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">
           {footerLinks.map((link) => (
-            <Link key={link.name} href={link.href} className="hover:text-white transition-colors">
+            <span key={link.name} onClick={() => router.push(link.href)} className="hover:text-white transition-colors cursor-pointer">
               {link.name}
-            </Link>
+            </span>
           ))}
         </div>
 

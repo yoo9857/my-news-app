@@ -1,8 +1,0 @@
-{
-  "/_not-found/page": "app/_not-found/page.js",
-  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
-  "/register/page": "app/register/page.js",
-  "/page": "app/page.js",
-  "/settings/notifications/page": "app/settings/notifications/page.js",
-  "/settings/profile/page": "app/settings/profile/page.js"
-}

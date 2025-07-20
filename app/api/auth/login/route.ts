@@ -1,4 +1,3 @@
-
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
@@ -13,6 +12,7 @@ if (!JWT_SECRET) {
 }
 
 export async function POST(req: NextRequest) {
+  let client;
   try {
     // --- 2. Input Validation (Implicitly handled by client-side Zod) ---
     const { email, password } = await req.json();
@@ -22,14 +22,15 @@ export async function POST(req: NextRequest) {
     }
 
     // --- 3. Database User Lookup ---
-    const userResult = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    client = await db.connect();
+    const userResult = await client.query('SELECT * FROM users WHERE email = $1', [email]);
 
     if (userResult.rows.length === 0) {
       // Use a generic error message to prevent email enumeration attacks
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    const user = userResult.rows[0];
+    const user = userResult.rows[0] as unknown as { id: string; email: string; password: string; nickname: string; };
 
     // --- 4. Password Verification ---
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -59,5 +60,9 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Login API Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 }

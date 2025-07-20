@@ -14,11 +14,11 @@ export async function GET(req: NextRequest) {
         OR: [
           { title: { contains: query, mode: 'insensitive' } },
           { content: { contains: query, mode: 'insensitive' } },
-          { user: { nickname: { contains: query, mode: 'insensitive' } } },
+          { author: { profile: { nickname: { contains: query, mode: 'insensitive' } } } },
         ],
       },
-      include: { user: true, category: true },
-      orderBy: { createdAt: 'desc' },
+      include: { author: true, category: true },
+      orderBy: { created_at: 'desc' },
     });
 
     return NextResponse.json(posts);

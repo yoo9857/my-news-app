@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import Link from 'next/link';
@@ -49,6 +50,7 @@ const ContentWrapper = ({ children }: { children: React.ReactNode }) => (
 // Component for handling authentication display logic in the header
 const AuthSection = () => {
   const { user, isLoading, logout } = useAuth();
+  const router = useRouter();
 
   // 1. Loading State: Prevents UI flicker and provides feedback (Seamless UX)
   if (isLoading) {
@@ -79,8 +81,8 @@ const AuthSection = () => {
           </DropdownMenuLabel>
           <DropdownMenuSeparator className="bg-slate-700" />
           {/* Future-Proof: Links for upcoming features */}
-          <DropdownMenuItem asChild className="cursor-pointer focus:bg-slate-700">
-            <Link href="/settings/notifications"><LayoutDashboard className="mr-2 h-4 w-4" /><span>Settings</span></Link>
+          <DropdownMenuItem onClick={() => router.push('/settings/notifications')} className="cursor-pointer focus:bg-slate-700">
+            <LayoutDashboard className="mr-2 h-4 w-4" /><span>Settings</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator className="bg-slate-700" />
           <DropdownMenuItem onClick={logout} className="cursor-pointer focus:bg-slate-700 focus:text-red-400">
@@ -95,11 +97,11 @@ const AuthSection = () => {
   // 3. Logged-out State: Clear calls to action
   return (
     <div className="flex items-center gap-2">
-      <Button asChild variant="outline" className="rounded-full border-slate-600 text-slate-200 hover:bg-slate-800 hover:text-white">
-        <Link href="/login">Log In</Link>
+      <Button variant="outline" className="rounded-full border-slate-600 text-slate-200 hover:bg-slate-800 hover:text-white" onClick={() => router.push('/login')}>
+        Log In
       </Button>
-      <Button asChild className="rounded-full bg-indigo-600 hover:bg-indigo-700 text-white">
-        <Link href="/register">Sign Up</Link>
+      <Button className="rounded-full bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => router.push('/register')}>
+        Sign Up
       </Button>
     
     </div>
@@ -111,6 +113,7 @@ export default function KoreanStockPlatform() {
   const [activeTab, setActiveTab] = useState("explorer");
   const isMobile = useIsMobile();
   const title = "OneDayTrading";
+  const router = useRouter();
 
   return (
     <div className={`min-h-screen bg-[#0A0F1A] text-gray-100 font-sans ${isMobile ? 'pb-16' : ''}`}>
@@ -124,7 +127,7 @@ export default function KoreanStockPlatform() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <Link href="/" className="bg-clip-text text-transparent bg-gradient-to-br from-slate-200 to-slate-400">{title}</Link>
+            <span className="bg-clip-text text-transparent bg-gradient-to-br from-slate-200 to-slate-400 cursor-pointer" onClick={() => router.push('/')}>{title}</span>
           </motion.h1>
           {/* Security First: The AuthSection component encapsulates all auth-related UI logic */}
           <AuthSection />
@@ -141,10 +144,8 @@ export default function KoreanStockPlatform() {
                 <TabsTrigger value="tools"><Calculator className="mr-2 h-4 w-4" />투자 분석 도구</TabsTrigger>
                 <TabsTrigger value="dailyPlan"><CalendarDays className="mr-2 h-4 w-4" />일일 계획</TabsTrigger>
                 <TabsTrigger value="community"><CalendarDays className="mr-2 h-4 w-4" />커뮤니티</TabsTrigger>
-                <TabsTrigger value="psychology-research" asChild>
-                  <Link href="https://psychology-research.onedaytrading.net" target="_blank" rel="noopener noreferrer">
-                    <Brain className="mr-2 h-4 w-4" />심리연구소
-                  </Link>
+                <TabsTrigger value="psychology-research" onClick={() => window.open('https://psychology-research.onedaytrading.net', '_blank')} >
+                  <Brain className="mr-2 h-4 w-4" />심리연구소
                 </TabsTrigger>
               </TabsList>
             </div>

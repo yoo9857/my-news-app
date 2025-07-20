@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "../../lib/db";
+import { db } from "@/lib/db";
 
 export async function GET() {
   const client = await db.connect();
@@ -11,7 +11,7 @@ export async function GET() {
     );
     
     // 데이터베이스에서 반환된 객체 배열에서 테마 이름만 추출하여 문자열 배열로 변환합니다.
-    const themes = result.rows.map((row) => row.theme);
+    const themes = result.rows.map((row: any) => row.theme);
     
     return NextResponse.json({ success: true, data: themes });
   } catch (error) {
