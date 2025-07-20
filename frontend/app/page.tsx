@@ -62,10 +62,10 @@ const AuthSection = () => {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-10 w-auto px-4 rounded-full flex items-center gap-2 hover:bg-slate-700/50">
             <Avatar className="h-8 w-8 border-2 border-slate-500">
-              <AvatarImage src={user.avatar_url || undefined} alt={user.username} />
-              <AvatarFallback>{user.username.charAt(0).toUpperCase()}</AvatarFallback>
+              <AvatarImage src={user.avatar_url || undefined} alt={user.username || user.email} />
+              <AvatarFallback>{user.username?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
             </Avatar>
-            <span className="hidden sm:inline font-semibold text-slate-200">{user.username}</span>
+            <span className="hidden sm:inline font-semibold text-slate-200">{user.username || user.email}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56 bg-slate-800 border-slate-700 text-slate-200" align="end" forceMount>

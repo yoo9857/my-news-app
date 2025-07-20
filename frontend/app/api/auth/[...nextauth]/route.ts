@@ -1,50 +1,65 @@
-import NextAuth from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
+import NextAuth from "next-auth"
+import CredentialsProvider from "next-auth/providers/credentials"
+import GoogleProvider from "next-auth/providers/google"
 
 const handler = NextAuth({
   providers: [
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "text" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials, req) {
+        // Add logic here to look up the user from the credentials provided
+        // in your backend authentication service
+        const res = await fetch("http://localhost:8002/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            username: credentials?.email || "",
+            password: credentials?.password || "",
+          }),
+        })
+        const user = await res.json()
+
+        if (res.ok && user) {
+          return user
+        } else {
+          // If you return null then an error will be displayed advising the user they are not allowed to sign in.
+          return null
+          // You can also Reject this callback with an Error thus the user will be sent to the error page with the error message as a query parameter
+        }
+      }
+    }),
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-    }),
+    })
   ],
+  session: {
+    strategy: "jwt",
+  },
   callbacks: {
-    async signIn({ user, account, profile, email, credentials }) {
-      // 백엔드와 사용자 정보 동기화 로직 (선택 사항)
-      // 예: 백엔드 API를 호출하여 구글 로그인 사용자 정보를 저장하거나 업데이트
-      // const backendResponse = await fetch("http://localhost:8002/api/social-login", {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify({
-      //     provider: account?.provider,
-      //     providerAccountId: account?.id,
-      //     email: user.email,
-      //     name: user.name,
-      //     image: user.image,
-      //   }),
-      // });
-      // if (!backendResponse.ok) {
-      //   console.error("Failed to sync user with backend:", await backendResponse.text());
-      //   return false;
-      // }
-      return true;
-    },
-    async jwt({ token, account }) {
-      if (account) {
-        token.accessToken = account.access_token;
+    async jwt({ token, user }) {
+      if (user) {
+        token.accessToken = user.access_token
+        token.email = user.email // Store email in token
+        token.user = user // Store the entire user object in token
       }
-      return token;
+      return token
     },
     async session({ session, token }) {
-      session.accessToken = token.accessToken as string;
-      return session;
-    },
+      session.accessToken = token.accessToken
+      session.user.email = token.email // Ensure email is in session.user
+      session.user.username = token.user?.email || token.email // Use email as username if not provided
+      session.user.avatar_url = token.user?.avatar_url // Add avatar_url to session.user
+      return session
+    }
   },
   pages: {
-    signIn: "/auth/signin", // 커스텀 로그인 페이지 경로 (선택 사항)
+    signIn: "/login",
   },
-});
+})
 
-export { handler as GET, handler as POST };
+export { handler as GET, handler as POST }

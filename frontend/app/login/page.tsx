@@ -3,15 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/context/AuthContext';
-import { GoogleLogin, CredentialResponse, GoogleOAuthProvider } from '@react-oauth/google';
 import { useToast } from "@/components/ui/use-toast"; // Import useToast
+import { signIn } from 'next-auth/react';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { login, loginWithGoogle } = useAuth();
   const router = useRouter();
   const { toast } = useToast(); // Initialize toast
 
@@ -20,31 +18,25 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_ADMIN_API_URL}/api/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          username,
-          password,
-        }),
+      const result = await signIn('credentials', {
+        redirect: false,
+        email: username,
+        password: password,
       });
 
-      if (response.ok) {
-        const { access_token } = await response.json();
-        await login(access_token);
+      if (result?.error) {
+        setError(result.error);
+        toast({
+          title: "로그인 실패",
+          description: result.error || '아이디 또는 비밀번호를 확인해주세요.',
+          variant: "destructive",
+        });
+      } else {
         toast({
           title: "로그인 성공!",
           description: "환영합니다!",
         });
         router.push('/');
-      } else {
-        const errorData = await response.json();
-        setError(errorData.detail || 'Invalid credentials');
-        toast({
-          title: "로그인 실패",
-          description: errorData.detail || '아이디 또는 비밀번호를 확인해주세요.',
-          variant: "destructive",
-        });
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
@@ -56,22 +48,8 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
-    if (credentialResponse.credential) {
-        await loginWithGoogle(credentialResponse.credential);
-        toast({
-          title: "Google 로그인 성공!",
-          description: "환영합니다!",
-        });
-        router.push('/');
-    } else {
-        setError("Google login failed. Please try again.");
-        toast({
-          title: "Google 로그인 실패",
-          description: "다시 시도해주세요.",
-          variant: "destructive",
-        });
-    }
+  const handleGoogleLogin = async () => {
+    await signIn('google', { callbackUrl: '/' });
   };
 
   return (
@@ -131,9 +109,12 @@ export default function LoginPage() {
         </div>
 
         <div className="flex justify-center">
-          <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID as string}>
-            <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => setError('Google Login Failed')} />
-          </GoogleOAuthProvider>
+          <button
+            onClick={handleGoogleLogin}
+            className="w-full px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-red-500"
+          >
+            Sign in with Google
+          </button>
         </div>
 
         <p className="text-sm text-center text-gray-400">

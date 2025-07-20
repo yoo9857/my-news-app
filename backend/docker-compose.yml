@@ -186,6 +186,30 @@ services:
     networks:
       - my_news_network
 
+  auth-service:
+    build:
+      context: ..
+      dockerfile: ./backend/dockerfiles/Dockerfile.auth
+    container_name: my_news_app_auth_service
+    environment:
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+      - POSTGRES_DB=mynewsdb
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - SECRET_KEY=${AUTH_SECRET_KEY} # 환경 변수에서 SECRET_KEY를 가져옴
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8002:8000" # 인증 서비스 포트 (예: 8002)
+    volumes:
+      - ./src/auth_service:/app/src/auth_service # auth_service 코드를 컨테이너의 /app/src/auth_service로 마운트
+    working_dir: /app
+    command: uvicorn src.auth_service.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - my_news_network
+
   # [수정됨] 보안을 위해 토큰을 환경 변수로 관리
   cloudflared:
     image: cloudflare/cloudflared:latest
