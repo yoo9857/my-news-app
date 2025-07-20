@@ -278,6 +278,7 @@
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "concurrently": "^9.2.0"
   },
   "scripts": {
