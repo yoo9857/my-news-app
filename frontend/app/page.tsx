@@ -133,7 +133,7 @@ export default function KoreanStockPlatform() {
           <AuthSection />
         </div>
       </header>
-      
+      {/* Content */}
       <main className="max-w-screen-xl mx-auto p-4 sm:p-5 lg:p-8 relative z-10">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {!isMobile && (
