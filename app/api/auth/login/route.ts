@@ -5,10 +5,10 @@ import jwt from 'jsonwebtoken';
 
 // --- 1. Environment Variable for Security ---
 // It's crucial to use an environment variable for the JWT secret.
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.NEXT_PUBLIC_JWT_SECRET;
 
-if (!JWT_SECRET) {
-  throw new Error('Missing JWT_SECRET in environment variables. Please add it to your .env.local file.');
+if (!process.env.NEXT_PUBLIC_JWT_SECRET) {
+  throw new Error('Missing NEXT_PUBLIC_JWT_SECRET in environment variables. Please add it to your .env.local file.');
 }
 
 export async function POST(req: NextRequest) {
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       // Add other non-sensitive data if needed, e.g., roles
     };
 
-    const access_token = jwt.sign(payload, JWT_SECRET!, {
+    const access_token = jwt.sign(payload, process.env.NEXT_PUBLIC_JWT_SECRET!, {
       expiresIn: '1h', // Token expires in 1 hour
     });
 
