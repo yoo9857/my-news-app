@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+export const dynamic = 'force-dynamic';
+
 // --- 인터페이스 정의 ---
 interface NewsItem {
   id: string; title: string; description: string; link: string;

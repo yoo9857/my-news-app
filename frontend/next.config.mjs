@@ -45,6 +45,16 @@ const nextConfig = {
       },
     ];
   },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.cache = false;
+    }
+    return config;
+  },
+  experimental: {
+    cpus: 1,
+    workerThreads: false
+  },
 };
 
 export default nextConfig;

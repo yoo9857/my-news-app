@@ -2,7 +2,6 @@
 // You should replace this with your actual database connection logic (e.g., PostgreSQL, MySQL, MongoDB).
 
 // For demonstration purposes, we'll mock a pg.Pool-like object.
-// In a real application, you would use 'pg' library:
 // import { Pool } from 'pg';
 // const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -26,7 +25,7 @@ export const db = {
             };
           } else {
             return { rows: [] as T[] };
-          }
+          }// 제발좀 되게해주세요 .
         } else if (sql.includes("SELECT DISTINCT theme FROM stocks")) {
           return {
             rows: [
