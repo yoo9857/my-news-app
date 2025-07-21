@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "prisma generate && next build",
+    "prebuild": "rm -rf .next",
+    "build": "NODE_OPTIONS=--max-old-space-size=4096 prisma generate && next build",
     "dev": "next dev -p 3001 --hostname 0.0.0.0",
     "lint": "next lint",
     "start": "next start"
@@ -88,6 +89,7 @@
     "eslint": "^9.31.0",
     "postcss": "^8.5",
     "prisma": "^6.12.0",
+    "rimraf": "^6.0.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
   }
