@@ -55,7 +55,12 @@ const nextConfig = {
     cpus: 1,
     workerThreads: false
   },
-  productionBrowserSourceMaps: false,
+  webpack: (config, { dev, isServer }) => {
+    if (!dev && !isServer) {
+      config.devtool = 'hidden-source-map';
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
