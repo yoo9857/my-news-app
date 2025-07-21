@@ -22,6 +22,7 @@ model User {
   follows_follows_following_idTousers follows[]                   @relation("follows_following_idTousers")
   posts                               Post[]
   likes                               Like[]
+  uploads                             Upload[]
   user_notification_settings          user_notification_settings?
   notifications                       Notification[]
   user_privacy_settings               user_privacy_settings?
@@ -42,6 +43,7 @@ model Post {
   updated_at DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   comments   Comment[]
   likes      Like[]
+  uploads    Upload[]
   author     User      @relation(fields: [author_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("posts")
@@ -176,4 +178,17 @@ model user_visits {
   visit_time DateTime? @default(now()) @db.Timestamptz(6)
   user_agent String?
   path       String?
+}
+
+model Upload {
+  id        Int      @id @default(autoincrement())
+  filePath  String   @db.VarChar(255)
+  fileName  String   @db.VarChar(255)
+  postId    Int?     @map("post_id")
+  post      Post?    @relation(fields: [postId], references: [id])
+  userId    Int?     @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@map("uploads")
 }

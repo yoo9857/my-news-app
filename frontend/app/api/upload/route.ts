@@ -6,8 +6,15 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File;
-    const postId = formData.get('postId') as string;
-    const userId = formData.get('userId') as string;
+    const postId = formData.get('postId') ? parseInt(formData.get('postId') as string, 10) : null;
+    const userId = formData.get('userId') ? parseInt(formData.get('userId') as string, 10) : null;
+
+    if (postId !== null && isNaN(postId)) {
+      return NextResponse.json({ error: 'Invalid postId' }, { status: 400 });
+    }
+    if (userId !== null && isNaN(userId)) {
+      return NextResponse.json({ error: 'Invalid userId' }, { status: 400 });
+    }
 
     if (!file) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
@@ -21,8 +28,8 @@ export async function POST(req: NextRequest) {
       data: {
         filePath: `/uploads/${file.name}`,
         fileName: file.name,
-        postId: postId || null,
-        userId: userId || null,
+        postId: postId,
+        userId: userId,
       },
     });
 
