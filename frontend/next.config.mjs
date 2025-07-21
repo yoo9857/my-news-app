@@ -55,6 +55,7 @@ const nextConfig = {
     cpus: 1,
     workerThreads: false
   },
+  productionBrowserSourceMaps: false,
 };
 
 export default nextConfig;

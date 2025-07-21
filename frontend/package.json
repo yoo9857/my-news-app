@@ -57,7 +57,7 @@
     "lucide-react": "^0.454.0",
     "multer": "^2.0.2",
     "my-news-app": "file:..",
-    "next": "14.2.3",
+    "next": "14.1.0",
     "next-auth": "^4.24.11",
     "next-themes": "^0.4.4",
     "pg": "^8.16.3",
