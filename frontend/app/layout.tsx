@@ -31,8 +31,8 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <body className={`${notoSansKr.className} antialiased bg-[#0F172A] text-gray-100`}>
-        <ClientSessionProvider> {/* Wrap with ClientSessionProvider */}
-            <NicknameRedirector>{children}</NicknameRedirector>
+        <ClientSessionProvider>
+          <NicknameRedirector>
             <ThemeProvider
               attribute="class"
               defaultTheme="dark"
@@ -45,6 +45,7 @@ export default function RootLayout({
               </div>
               <Toaster />
             </ThemeProvider>
+          </NicknameRedirector>
         </ClientSessionProvider>
       </body>
     </html>
