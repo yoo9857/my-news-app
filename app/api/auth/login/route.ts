@@ -7,10 +7,6 @@ import jwt from 'jsonwebtoken';
 // It's crucial to use an environment variable for the JWT secret.
 const JWT_SECRET = process.env.JWT_SECRET;
 
-if (!process.env.JWT_SECRET) {
-  throw new Error('Missing JWT_SECRET in environment variables. Please add it to your .env.local file.');
-}
-
 export async function POST(req: NextRequest) {
   let client;
   try {
@@ -19,6 +15,11 @@ export async function POST(req: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
+    }
+
+    // Ensure JWT_SECRET is available at runtime
+    if (!JWT_SECRET) {
+      throw new Error('Missing JWT_SECRET in environment variables. Please add it to your .env.local file.');
     }
 
     // --- 3. Database User Lookup ---
